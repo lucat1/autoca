@@ -5,7 +5,7 @@ from tomllib import load as read_toml
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
-from cryptography.x509 import Certificate, load_pem_x509_certificate
+from cryptography import x509
 
 class Deserializable(ABC):
     def from_file(self, path: str) -> Self:
@@ -32,7 +32,7 @@ class State(Serializable, Deserializable):
         }
 
     def from_dict(self, dict: Dict[str, Any]) -> Self:
-        return self.__class__(time=int(dict['time']))
+        return self.__class__(time=int(dict["time"]))
 
 class KeyPair(Serializable, Deserializable):
     KEY_ENCODNIG = serialization.Encoding.PEM
@@ -80,7 +80,7 @@ class KeyPair(Serializable, Deserializable):
         return self.__class__(key=key)
 
 class CA(KeyPair):
-    def __init__(self, key: Optional[rsa.RSAPrivateKey] = None, sn: Optional[str] = None, start: Optional[int] = 0, end: Optional[int] = 0, certificate: Optional[Certificate] = None) -> None:
+    def __init__(self, key: Optional[rsa.RSAPrivateKey] = None, sn: Optional[str] = None, start: Optional[int] = 0, end: Optional[int] = 0, certificate: Optional[x509.Certificate] = None) -> None:
         super().__init__(key)
         self._sn = sn
         self._start = start
@@ -103,19 +103,18 @@ class CA(KeyPair):
         return self._end
 
     @property
-    def certificate(self) -> Certificate:
+    def certificate(self) -> x509.Certificate:
         assert self._certificate is not None
         return self._certificate
 
     @property
     def certificate_bytes(self) -> bytes:
-        assert self._certificate is not None
-        return self._certificate.public_bytes(
+        return self.certificate.public_bytes(
             encoding=serialization.Encoding.PEM
         )
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        return super().to_dict() | {
             "sn": self.sn,
             "start": self.start,
             "end": self.end,
@@ -124,10 +123,31 @@ class CA(KeyPair):
 
     def from_dict(self, dict: Dict[str, Any]) -> Self:
         key = super().from_dict(dict).key
-        sn = dict['sn']
-        start = int(dict['start'])
-        end = int(dict['end'])
-        certificate = load_pem_x509_certificate(
-            dict['certificate'], default_backend()
+        sn = dict["sn"]
+        start = int(dict["start"])
+        end = int(dict["end"])
+        certificate = x509.load_pem_x509_certificate(
+            dict["certificate"], default_backend()
         )
         return self.__class__(key=key, sn=sn, start=start, end=end, certificate=certificate)
+
+class Domain(Serializable, Deserializable):
+    def __init__(self, domain: Optional[str] = None) -> None:
+        self._domain = domain
+
+    @property
+    def domain(self) -> str:
+        assert self._domain is not None
+        return self._domain
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "domain": self.domain
+        }
+
+    def from_dict(self, dict: Dict[str, Any]) -> Self:
+        return self.__class__(domain=dict["domain"])
+
+
+class Certificate(KeyPair):
+    pass
