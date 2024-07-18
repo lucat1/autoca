@@ -152,6 +152,6 @@ class Certificate(KeyPair):
         start = datetime.fromtimestamp(float(dict["start"]))
         end = datetime.fromtimestamp(float(dict["end"]))
         certificate = x509.load_pem_x509_certificate(
-            dict["certificate"], default_backend()
+            bytes(dict["certificate"], 'utf-8'), default_backend()
         )
         return self.__class__(key=key, domain=domain, start=start, end=end, certificate=certificate)
