@@ -57,8 +57,9 @@ config = read_config(config_path)
 db_path = Path(config.storage).joinpath("db.toml")
 try:
     state = State.from_file(db_path)
-except Exception as e:
-    error("Could not parse database file: %r", e)
+except:
+    import traceback
+    error("Could not parse database file: %r", traceback.format_exc())
     state = State()
 
 if not state.initialized:

@@ -89,7 +89,10 @@ class State(Serializable, Deserializable):
 
     def from_dict(self, dict: Dict[str, Any]) -> Self:
         certs = list(dict["certs"])
-        return self.__class__(time=datetime.fromtimestamp(float(dict["time"])), ca=CA().from_dict(dict["ca"]), certs=[Certificate().from_dict(cert) for cert in certs])
+        time = datetime.fromtimestamp(float(dict["time"]))
+        ca = CA().from_dict(dict["ca"])
+        certs = [Certificate().from_dict(cert) for cert in certs]
+        return self.__class__(time=time, ca=ca, certs=certs)
 
     @staticmethod
     def from_file(path: Path) -> "State":

@@ -44,11 +44,11 @@ class KeyPair(Serializable, Deserializable):
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "key": str(self.key_bytes)
+            "key": self.key_bytes.decode('utf-8'),
         }
 
     def from_dict(self, dict: Dict[str, Any]) -> Self:
-        data = bytes(dict["key"])
+        data = bytes(dict["key"], "utf-8")
         key = cast(rsa.RSAPrivateKey, serialization.load_pem_private_key(data, None, default_backend()))
         return self.__class__(key=key)
 
@@ -91,7 +91,7 @@ class CA(KeyPair):
             "sn": self.sn,
             "start": self.start.timestamp(),
             "end": self.end.timestamp(),
-            "certificate": str(self.certificate_bytes),
+            "certificate": self.certificate_bytes.decode('utf-8'),
         }
 
     def from_dict(self, dict: Dict[str, Any]) -> Self:
@@ -100,7 +100,7 @@ class CA(KeyPair):
         start = datetime.fromtimestamp(float(dict["start"]))
         end = datetime.fromtimestamp(float(dict["end"]))
         certificate = x509.load_pem_x509_certificate(
-            dict["certificate"], default_backend()
+            bytes(dict["certificate"], 'utf-8'), default_backend()
         )
         return self.__class__(key=key, sn=sn, start=start, end=end, certificate=certificate)
 
@@ -143,7 +143,7 @@ class Certificate(KeyPair):
             "domain": self.domain,
             "start": self.start.timestamp(),
             "end": self.end.timestamp(),
-            "certificate": str(self.certificate_bytes),
+            "certificate": self.certificate_bytes.decode('utf-8'),
         }
 
     def from_dict(self, dict: Dict[str, Any]) -> Self:
