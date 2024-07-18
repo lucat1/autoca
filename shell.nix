@@ -1,5 +1,9 @@
-{ pkgs ? import <nixpkgs> { } }:
-
-pkgs.mkShell {
-  packages = with pkgs; [ python3 poetry ];
+let
+  pkgs = import <nixpkgs> {};
+in pkgs.mkShell {
+  packages = [
+    (pkgs.python3.withPackages (python-pkgs: [
+      python-pkgs.cryptography
+    ]))
+  ];
 }
