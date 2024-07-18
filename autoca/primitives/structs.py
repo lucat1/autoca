@@ -44,7 +44,7 @@ class KeyPair(Serializable, Deserializable):
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "key": self.key_bytes
+            "key": str(self.key_bytes)
         }
 
     def from_dict(self, dict: Dict[str, Any]) -> Self:
@@ -91,7 +91,7 @@ class CA(KeyPair):
             "sn": self.sn,
             "start": self.start.timestamp(),
             "end": self.end.timestamp(),
-            "certificate": self.certificate_bytes,
+            "certificate": str(self.certificate_bytes),
         }
 
     def from_dict(self, dict: Dict[str, Any]) -> Self:
@@ -143,7 +143,7 @@ class Certificate(KeyPair):
             "domain": self.domain,
             "start": self.start.timestamp(),
             "end": self.end.timestamp(),
-            "certificate": self.certificate_bytes,
+            "certificate": str(self.certificate_bytes),
         }
 
     def from_dict(self, dict: Dict[str, Any]) -> Self:
