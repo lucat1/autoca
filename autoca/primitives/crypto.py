@@ -2,7 +2,7 @@ import datetime
 from datetime import datetime
 from uuid import uuid4
 
-from autoca.state import KeyPair, CA, Certificate
+from autoca.primitives import KeyPair, CA, Certificate
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -39,7 +39,7 @@ def create_ca(
     builder = builder.public_key(key_pair.public_key)
     builder = builder.add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
     certificate = builder.sign(private_key=key_pair.key, algorithm=hashes.SHA256(), backend=default_backend())
-    return CA(key=key_pair.key, sn=sn, start=start.timestamp(), end=end.timestamp(), certificate=certificate)
+    return CA(key=key_pair.key, sn=sn, start=start, end=end, certificate=certificate)
 
 def sign_cert(
     key_pair: KeyPair,
@@ -62,7 +62,7 @@ def sign_cert(
     builder = builder.add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
     certificate = builder.sign(private_key=key_pair.key, algorithm=hashes.SHA256(), backend=default_backend())
     assert(isinstance(certificate, x509.Certificate))
-    return CA(key=key_pair.key, sn=sn, start=start.timestamp(), end=end.timestamp(), certificate=certificate)
+    return CA(key=key_pair.key, sn=sn, start=start, end=end, certificate=certificate)
 
 
 def _generate_csr(key_pair: KeyPair, domain: str) -> x509.CertificateSigningRequest:
@@ -130,4 +130,4 @@ def _sign_csr(ca: CA, csr: x509.CertificateSigningRequest, start: datetime, end:
 def create_certificate(key_pair: KeyPair, ca: CA, domain: str, start: datetime, end: datetime) -> Certificate:
     csr = _generate_csr(key_pair, domain)
     certificate = _sign_csr(ca, csr, start, end)
-    return Certificate(key=key_pair.key, domain=domain, start=start.timestamp(), end=end.timestamp(), certificate=certificate)
+    return Certificate(key=key_pair.key, domain=domain, start=start, end=end, certificate=certificate)
