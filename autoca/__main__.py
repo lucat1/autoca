@@ -4,9 +4,10 @@ from dacite import from_dict
 from tomllib import load as parse_toml
 from typing import TypedDict, cast
 from pathlib import Path
-from logging import basicConfig as logger_config, debug, info, error
+from logging import basicConfig as logger_config, getLogger, StreamHandler, debug, info, error
 from logging import CRITICAL, FATAL, ERROR, WARNING, WARN, INFO, DEBUG
 from os import environ
+from sys import stdout
 
 from autoca.primitives.crypto import generate_keypair
 from autoca.state import State
@@ -29,6 +30,7 @@ log_levels = {
 log_path = Path(environ[LOG_PATH_ENV] if LOG_PATH_ENV in environ else "/etc/autoca/latest.log")
 loglevel = environ[LOGLEVEL_ENV] if LOGLEVEL_ENV in environ else "INFO"
 logger_config(filename=log_path, level=log_levels[loglevel], filemode='a', format="%(asctime)s - %(message)s")
+getLogger().addHandler(StreamHandler(stdout))
 
 info("Started autoca")
 
