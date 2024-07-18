@@ -80,7 +80,7 @@ class KeyPair(Serializable, Deserializable):
         return self.__class__(key=key)
 
 class CA(KeyPair):
-    def __init__(self, key: Optional[rsa.RSAPrivateKey] = None, sn: Optional[str] = None, start: Optional[int] = 0, end: Optional[int] = 0, certificate: Optional[x509.Certificate] = None) -> None:
+    def __init__(self, key: Optional[rsa.RSAPrivateKey] = None, sn: Optional[str] = None, start: Optional[float] = 0, end: Optional[float] = 0, certificate: Optional[x509.Certificate] = None) -> None:
         super().__init__(key)
         self._sn = sn
         self._start = start
@@ -93,12 +93,12 @@ class CA(KeyPair):
         return self._sn
 
     @property
-    def start(self) -> int:
+    def start(self) -> float:
         assert self._start is not None
         return self._start
 
     @property
-    def end(self) -> int:
+    def end(self) -> float:
         assert self._end is not None
         return self._end
 
@@ -124,30 +124,61 @@ class CA(KeyPair):
     def from_dict(self, dict: Dict[str, Any]) -> Self:
         key = super().from_dict(dict).key
         sn = dict["sn"]
-        start = int(dict["start"])
-        end = int(dict["end"])
+        start = float(dict["start"])
+        end = float(dict["end"])
         certificate = x509.load_pem_x509_certificate(
             dict["certificate"], default_backend()
         )
         return self.__class__(key=key, sn=sn, start=start, end=end, certificate=certificate)
 
-class Domain(Serializable, Deserializable):
-    def __init__(self, domain: Optional[str] = None) -> None:
+class Certificate(KeyPair):
+    def __init__(self, key: Optional[rsa.RSAPrivateKey] = None, domain: Optional[str] = None, start: Optional[float] = 0, end: Optional[float] = 0, certificate: Optional[x509.Certificate] = None) -> None:
+        super().__init__(key)
         self._domain = domain
+        self._start = start
+        self._end = end
+        self._certificate = certificate
 
     @property
     def domain(self) -> str:
         assert self._domain is not None
         return self._domain
 
+    @property
+    def start(self) -> float:
+        assert self._start is not None
+        return self._start
+
+    @property
+    def end(self) -> float:
+        assert self._end is not None
+        return self._end
+
+    @property
+    def certificate(self) -> x509.Certificate:
+        assert self._certificate is not None
+        return self._certificate
+
+    @property
+    def certificate_bytes(self) -> bytes:
+        return self.certificate.public_bytes(
+            encoding=serialization.Encoding.PEM
+        )
+
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "domain": self.domain
+        return super().to_dict() | {
+            "domain": self.domain,
+            "start": self.start,
+            "end": self.end,
+            "certificate": self.certificate_bytes,
         }
 
     def from_dict(self, dict: Dict[str, Any]) -> Self:
-        return self.__class__(domain=dict["domain"])
-
-
-class Certificate(KeyPair):
-    pass
+        key = super().from_dict(dict).key
+        domain = dict["domain"]
+        start = float(dict["start"])
+        end = float(dict["end"])
+        certificate = x509.load_pem_x509_certificate(
+            dict["certificate"], default_backend()
+        )
+        return self.__class__(key=key, domain=domain, start=start, end=end, certificate=certificate)
