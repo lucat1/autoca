@@ -76,4 +76,6 @@ debug("db: %r", state.to_dict())
 
 state.to_file(db_path)
 
+state.ca.to_files(Path(config.storage))
+
 info("Ended autoca")

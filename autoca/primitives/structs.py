@@ -1,11 +1,14 @@
 from typing import Any, Dict, Self, cast, Optional
 from datetime import datetime
+from pathlib import Path
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography import x509
+from logging import debug, info, error
 
 from autoca.primitives.serde import Serializable, Deserializable
+from autoca.primitives.utils import check_write_file
 
 class KeyPair(Serializable, Deserializable):
     KEY_ENCODNIG = serialization.Encoding.PEM
@@ -85,6 +88,33 @@ class CA(KeyPair):
         return self.certificate.public_bytes(
             encoding=serialization.Encoding.PEM
         )
+
+    # Method to generate ca.crt, ca.key, ca.pub given dir path
+    def to_files(self, dir: Path):
+        # ca.crt
+        crt_path = Path(dir).joinpath("ca.crt")
+        try:
+            check_write_file(crt_path, self.certificate_bytes)
+        except:
+            import traceback
+            error("Could not check ca.crt. %r", traceback.format_exc())
+
+        # ca.key
+        key_path = Path(dir).joinpath("ca.key")
+        try:
+            check_write_file(key_path, self.key_bytes)
+        except:
+            import traceback
+            error("Could not check ca.key. %r", traceback.format_exc())
+
+        # ca.pub
+        pub_path = Path(dir).joinpath("ca.pub")
+        try:
+            check_write_file(pub_path, self.public_key_bytes)
+        except:
+            import traceback
+            error("Could not check ca.pub. %r", traceback.format_exc())
+
 
     def to_dict(self) -> Dict[str, Any]:
         return super().to_dict() | {
