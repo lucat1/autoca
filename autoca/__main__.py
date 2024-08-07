@@ -1,17 +1,19 @@
 from datetime import datetime, timedelta
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from dacite import from_dict
 from tomllib import load as parse_toml
 from typing import TypedDict, cast
 from pathlib import Path
 from logging import basicConfig as logger_config, getLogger, StreamHandler, debug, info, error
 from logging import CRITICAL, FATAL, ERROR, WARNING, WARN, INFO, DEBUG
-from os import environ
+from os import environ, makedirs, symlink
 from sys import stdout
+from hashlib import sha1
 
-from autoca.primitives.crypto import generate_keypair
+from autoca.primitives.crypto import generate_keypair, create_certificate
 from autoca.state import State
 from autoca.primitives import create_ca
+from autoca.primitives.utils import create_symlink_if_not_present
 
 CONFIG_PATH_ENV = "AUTOCA_CONFIG"
 LOG_PATH_ENV = "AUTOCA_LOG"
@@ -42,6 +44,7 @@ class CAConfig:
 @dataclass
 class CertificatesConfig:
     duration: int = 60 # ~ 2 months
+    domains: list[str] = field(default_factory=list)
 
 @dataclass
 class Config:
@@ -69,13 +72,64 @@ if not state.initialized:
     kp = generate_keypair()
     ca = create_ca(kp, config.ca.cn, time, time + timedelta(days=config.ca.duration))
     state.set_ca(ca)
+
+    month = datetime(year=time.year, month=time.month, day=1)
+    for domain in config.certificates.domains:
+        kp = generate_keypair()
+        cert = create_certificate(kp, state.ca, domain, month, month + timedelta(days=config.certificates.duration))
+        state.add_certificate(cert)
+        
     assert state.initialized
+
+now = datetime.now()
+month = datetime(year=now.year, month=now.month, day=1)
+for cert in state.certs:
+    if cert.domain not in config.certificates.domains:
+        info("Deleting cert for domain %s as not present in config", cert.domain)
+        state.delete_certificate(cert)
+        continue
+
+    if cert.end <= now:
+        info("Recreating cert for %s", cert.domain)
+        state.delete_certificate(cert)
+        kp = generate_keypair()
+        cert = create_certificate(kp, state.ca, domain, month, month + timedelta(days=config.certificates.duration))
+        state.add_certificate(cert)
+
+# Add new domains
+for domain in config.certificates.domains:
+    cert_domains = map(lambda c: c.domain, state.certs)
+    if domain not in cert_domains:
+        info("Adding cert for domain %s", cert.domain)
+        kp = generate_keypair()
+        cert = create_certificate(kp, state.ca, domain, month, month + timedelta(days=config.certificates.duration))
+        state.add_certificate(cert)
+
 
 info("Saving DB")
 debug("db: %r", state.to_dict())
 
 state.to_file(db_path)
 
+info("Writing ca files")
 state.ca.to_files(Path(config.storage))
+
+certs_dir_path = Path(config.storage).joinpath("certs")
+makedirs(certs_dir_path, exist_ok=True)
+
+hosts_dir_path = Path(config.storage).joinpath("hosts")
+makedirs(hosts_dir_path, exist_ok=True)
+
+info("Writing certificates")
+
+for cert in state.certs:
+    dir_name = sha1(cert.domain.encode()).hexdigest()
+    dir = certs_dir_path.joinpath(dir_name)
+    makedirs(dir, exist_ok=True)
+    cert.to_files(dir)
+
+    create_symlink_if_not_present(Path("../certs/").joinpath(dir_name), hosts_dir_path.joinpath(cert.domain), target_is_directory=True)
+
+# We should do some cleanup when certs are removed from db
 
 info("Ended autoca")
