@@ -8,7 +8,7 @@ from logging import basicConfig as logger_config, getLogger, StreamHandler, debu
 from logging import CRITICAL, FATAL, ERROR, WARNING, WARN, INFO, DEBUG
 from os import environ, makedirs, symlink
 from sys import stdout
-from hashlib import sha1
+from hashlib import sha256
 
 from autoca.primitives.crypto import generate_keypair, create_certificate
 from autoca.state import State
@@ -123,7 +123,7 @@ makedirs(hosts_dir_path, exist_ok=True)
 info("Writing certificates")
 
 for cert in state.certs:
-    dir_name = sha1(cert.domain.encode()).hexdigest()
+    dir_name = sha256(cert.domain.encode()).hexdigest()
     dir = certs_dir_path.joinpath(dir_name)
     makedirs(dir, exist_ok=True)
     cert.to_files(dir)
