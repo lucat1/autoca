@@ -8,9 +8,10 @@ from logging import basicConfig as logger_config, getLogger, StreamHandler, debu
 from logging import CRITICAL, FATAL, ERROR, WARNING, WARN, INFO, DEBUG
 from os import environ
 from sys import stdout
+from grp import getgrnam
 
 from autoca.primitives.crypto import generate_keypair, create_certificate
-from autoca.state import State
+from autoca.state import State, Permissions
 from autoca.primitives import create_ca
 from autoca.primitives.utils import create_symlink_if_not_present
 
@@ -36,20 +37,27 @@ getLogger().addHandler(StreamHandler(stdout))
 info("Started autoca")
 
 @dataclass
+class Host:
+    domain: str
+    user: str
+
+@dataclass
 class CAConfig:
     cn: str
     duration: int = 365 * 60 # ~ 60ys
 
 @dataclass
 class CertificatesConfig:
-    duration: int = 60 # ~ 2 months
+    duration: int = 60 # ~ 2 starts
     domains: list[str] = field(default_factory=list)
 
 @dataclass
 class Config:
     storage: str
+    group: str
     ca: CAConfig
     certificates: CertificatesConfig
+    hosts: list[Host]
 
 def read_config(path: Path):
     config_file = open(path, mode="rb")
@@ -57,6 +65,20 @@ def read_config(path: Path):
 
 config_path = Path(environ[CONFIG_PATH_ENV] if CONFIG_PATH_ENV in environ else "/etc/autoca/autoca.toml")
 config = read_config(config_path)
+
+# Checks for config
+try:
+    getgrnam(config.group)
+except KeyError:
+    error("Group '%s' not found, can't continue", config.group)
+    exit(1)
+
+for h in config.hosts:
+    try:
+        getgrnam(h.user)
+    except KeyError:
+        error("Group '%s' not found, can't continue", h.user)
+        exit(1)
 
 root_path = Path(config.storage)
 db_path = root_path.joinpath("db.toml")
@@ -85,24 +107,24 @@ new_state = State().from_dict(state.to_dict())
 # We should check if the CA in config is changed and then modify the state
 
 now = datetime.now()
-month = datetime(year=now.year, month=now.month, day=1)
-# Add new domains
-cert_domains = list(map(lambda c: c.domain, state.certs))
-for domain in config.certificates.domains:
-    if domain not in cert_domains:
-        info("Adding cert for domain %s", domain)
+start = datetime(year=now.year, month=now.month, day=1)
+# Add new hosts
+cert_domains = [c[0].domain for c in state.certs]
+for host in config.hosts:
+    if host.domain not in cert_domains:
+        info("Adding cert for domain %s", host.domain)
         kp = generate_keypair()
-        cert = create_certificate(kp, new_state.ca, domain, month, month + timedelta(days=config.certificates.duration))
-        new_state.add_certificate(cert)
+        cert = create_certificate(kp, new_state.ca, host.domain, start, start + timedelta(days=config.certificates.duration))
+        new_state.add_certificate(cert, Permissions(0, "", ""))
 
 # Update expired certs
-for c in state.certs():
-    if c.end <= now:
-        info("Updating certificate for %s", domain)
+for c in state.certs:
+    if c[0].end <= now:
+        info("Updating certificate for %s", c.domain)
         kp = generate_keypair()
-        cert = create_certificate(kp, new_state.ca, c.domain, month, month + timedelta(days=config.certificates.duration))
-        new_state.delete_certificate(cert)
-        new_state.add_certificate(cert)
+        cert = create_certificate(kp, new_state.ca, c.domain, start, start + timedelta(days=config.certificates.duration))
+        new_state.delete_certificate(cert, Permissions(0, "", ""))
+        new_state.add_certificate(cert, Permissions(0, "", ""))
 
 
 new_state.update_fs(state, root_path)

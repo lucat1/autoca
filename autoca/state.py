@@ -24,9 +24,47 @@ def _write_or_print_error( path: Path, content: bytes,
         import traceback
         error("Could not check/write %s. %r", path, traceback.format_exc())
 
+class Permissions(Serializable, Deserializable):
+    def __init__(self, permissions: int = None, user: str = None, group: str = None):
+        self._permissions = permissions
+        self._user = user
+        self._group = group
+
+    def __eq__(self, other: Self):
+        return self.permissions == other.permissions and self.user == other.user and self.group == other.group
+
+    @property
+    def permissions(self) -> int:
+        assert self._permissions is not None
+        return self._permissions
+
+    @property
+    def user(self) -> str:
+        assert self._user is not None
+        return self._user
+
+    @property
+    def group(self) -> str:
+        assert self._group is not None
+        return self._group
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "permissions": self.permissions,
+            "user": self.user,
+            "group": self.group
+        }
+
+    def from_dict(self, dict: Dict[str, Any]):
+        return self.__class__(
+            permissions=dict["permissions"],
+            user=dict["user"],
+            group=dict["group"]
+        )
+
 
 class State(Serializable, Deserializable):
-    def __init__(self, time: Optional[datetime] = None, ca: Optional[CA] = None, certs: Optional[List[Certificate]] = None) -> None:
+    def __init__(self, time: Optional[datetime] = None, ca: Optional[CA] = None, certs: Optional[List[tuple[Certificate, Permissions]]] = None) -> None:
         super().__init__()
         self._time = time
         self._ca = ca
@@ -52,19 +90,20 @@ class State(Serializable, Deserializable):
         return self._ca
 
     @property
-    def certs(self) -> List[Certificate]:
+    def certs(self) -> List[tuple[Certificate, Permissions]]:
         assert self._certs is not None
         return self._certs
 
-    def add_certificate(self, cert: Certificate):
+    def add_certificate(self, cert: Certificate, perm: Permissions):
         if self._certs is None:
             self._certs = []
-        self._certs.append(cert)
+        self._certs.append([cert, perm])
         self._updated()
 
-    def delete_certificate(self, cert: Certificate):
+    def delete_certificate(self, cert: Certificate, perm: Permissions):
         assert self._certs is not None
-        self._certs.remove(cert)
+        # Probably we should not require perm to remove...
+        self._certs.remove([cert, perm])
         self._updated()
 
     @property
@@ -75,7 +114,7 @@ class State(Serializable, Deserializable):
         return {
             "time": self.time.timestamp(),
             "ca": self.ca.to_dict(),
-            "certs": [cert.to_dict() for cert in self.certs]
+            "certs": [(cert[0].to_dict(), cert[1].to_dict()) for cert in self.certs]
         }
 
     def to_file(self, path: Path):
@@ -87,7 +126,7 @@ class State(Serializable, Deserializable):
         certs = list(dict["certs"])
         time = datetime.fromtimestamp(float(dict["time"]))
         ca = CA().from_dict(dict["ca"])
-        certs = [Certificate().from_dict(cert) for cert in certs]
+        certs = [(Certificate().from_dict(cert[0]), Permissions().from_dict(cert[1])) for cert in certs]
         return self.__class__(time=time, ca=ca, certs=certs)
 
     @staticmethod
@@ -102,26 +141,26 @@ class State(Serializable, Deserializable):
         makedirs(hosts_dir_path, exist_ok=True)
 
         if old_state == None or self.ca != old_state.ca:
-            self.cert_to_files(certs_dir_path, self.ca, path)
+            self.cert_to_files(certs_dir_path, (self.ca, Permissions(0, "", "")), path)
 
         if old_state == None:
             return
 
         for c in self.certs:
             if c not in old_state.certs:
-                info("Writing cert for domain %s", c.domain)
+                info("Writing cert for domain %s", c[0].domain)
                 self.cert_to_files(certs_dir_path, c, hosts_dir_path)
 
     @staticmethod
-    def cert_to_files(cert_path: Path, cert: Union[Certificate, CA], link_path: Path):
-        name = cert.domain if not isinstance(cert, CA) else "ca"
+    def cert_to_files(cert_path: Path, cert: tuple[Union[Certificate, CA], Permissions], link_path: Path):
+        name = cert[0].domain if not isinstance(cert[0], CA) else "ca"
 
         sha = sha256(name.encode()).hexdigest()
 
         cert_path = cert_path.joinpath(sha)
         makedirs(cert_path, exist_ok=True)
-        _write_or_print_error(cert_path.joinpath("cert.crt"), cert.certificate_bytes)
-        _write_or_print_error(cert_path.joinpath("cert.key"), cert.key_bytes)
-        _write_or_print_error(cert_path.joinpath("cert.pub"), cert.public_key_bytes)
+        _write_or_print_error(cert_path.joinpath("cert.crt"), cert[0].certificate_bytes)
+        _write_or_print_error(cert_path.joinpath("cert.key"), cert[0].key_bytes)
+        _write_or_print_error(cert_path.joinpath("cert.pub"), cert[0].public_key_bytes)
         
         create_symlink_if_not_present(relpath(cert_path, link_path), link_path.joinpath(name), target_is_directory=True)
