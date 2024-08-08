@@ -2,6 +2,7 @@ from os.path import isfile
 from datetime import datetime
 from pathlib import Path
 from os import chmod, makedirs, symlink
+from os.path import relpath
 from typing import Any, Dict, Self, Optional, List, Union
 from logging import debug, info, error
 from tomllib import load as read_toml
@@ -94,28 +95,33 @@ class State(Serializable, Deserializable):
         f = open(path, "rb")
         return State().from_dict(read_toml(f))
 
-
-    def __cert_to_files(self, path: Path, cert: Union[Certificate, CA]):
-        makedirs(path, exist_ok=True)
-        _write_or_print_error(path.joinpath("cert.crt"), cert.certificate_bytes)
-        _write_or_print_error(path.joinpath("cert.key"), cert.key_bytes)
-        _write_or_print_error(path.joinpath("cert.pub"), cert.public_key_bytes)
-        
-
-    def certs_to_files(self, path: Path):
+    def update_fs(self, old_state: Self, path: Path):
         certs_dir_path = path.joinpath("certs")
         makedirs(certs_dir_path, exist_ok=True)
         hosts_dir_path = path.joinpath("hosts")
         makedirs(hosts_dir_path, exist_ok=True)
 
-        # CA to file
-        sha = sha256(self.ca.sn.encode()).hexdigest()
-        self.__cert_to_files(certs_dir_path.joinpath(sha), self.ca)
-        create_symlink_if_not_present(Path("certs/").joinpath(sha), 
-                    path.joinpath("ca"), target_is_directory=True)
+        if old_state == None or self.ca != old_state.ca:
+            self.cert_to_files(certs_dir_path, self.ca, path)
 
-        for cert in self.certs:
-            sha = sha256(cert.domain.encode()).hexdigest()
-            self.__cert_to_files(certs_dir_path.joinpath(sha), cert)
-            create_symlink_if_not_present(Path("../certs/").joinpath(sha), 
-                    hosts_dir_path.joinpath(cert.domain), target_is_directory=True)
+        if old_state == None:
+            return
+
+        for c in self.certs:
+            if c not in old_state.certs:
+                info("Writing cert for domain %s", c.domain)
+                self.cert_to_files(certs_dir_path, c, hosts_dir_path)
+
+    @staticmethod
+    def cert_to_files(cert_path: Path, cert: Union[Certificate, CA], link_path: Path):
+        name = cert.domain if not isinstance(cert, CA) else "ca"
+
+        sha = sha256(name.encode()).hexdigest()
+
+        cert_path = cert_path.joinpath(sha)
+        makedirs(cert_path, exist_ok=True)
+        _write_or_print_error(cert_path.joinpath("cert.crt"), cert.certificate_bytes)
+        _write_or_print_error(cert_path.joinpath("cert.key"), cert.key_bytes)
+        _write_or_print_error(cert_path.joinpath("cert.pub"), cert.public_key_bytes)
+        
+        create_symlink_if_not_present(relpath(cert_path, link_path), link_path.joinpath(name), target_is_directory=True)
