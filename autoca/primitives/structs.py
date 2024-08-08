@@ -21,6 +21,9 @@ class KeyPair(Serializable, Deserializable):
     def __init__(self, key: Optional[rsa.RSAPrivateKey] = None) -> None:
         self._key = key
 
+    def __eq__(self, other: Self):
+        return self.key_bytes == other.key_bytes
+
     @property
     def key(self) -> rsa.RSAPrivateKey:
         assert self._key is not None
@@ -62,6 +65,9 @@ class CA(KeyPair):
         self._start = start
         self._end = end
         self._certificate = certificate
+
+    def __eq__(self, other: Self):
+        return self.key_bytes == other.key_bytes and self.sn == other.sn and self.start == other.start and self._end == other.end and self.certificate_bytes == other.certificate_bytes
 
     @property
     def sn(self) -> str:
@@ -114,6 +120,9 @@ class Certificate(KeyPair):
         self._start = start
         self._end = end
         self._certificate = certificate
+
+    def __eq__(self, other: Self):
+        return self.key_bytes == other.key_bytes and self.domain == other.domain and self.start == other.start and self._end == other.end and self.certificate_bytes == other.certificate_bytes
 
     @property
     def domain(self) -> str:
