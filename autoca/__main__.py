@@ -89,13 +89,6 @@ for cert in state.certs:
         state.delete_certificate(cert)
         continue
 
-    if cert.end <= now:
-        info("Recreating cert for %s", cert.domain)
-        state.delete_certificate(cert)
-        kp = generate_keypair()
-        cert = create_certificate(kp, state.ca, domain, month, month + timedelta(days=config.certificates.duration))
-        state.add_certificate(cert)
-
 # Deep copy can't be done as RSAPrivateKey cannot be pickled
 new_state = State().from_dict(state.to_dict())
 
@@ -132,7 +125,5 @@ for cert in new_state.certs:
     cert.to_files(dir)
 
     create_symlink_if_not_present(Path("../certs/").joinpath(dir_name), hosts_dir_path.joinpath(cert.domain), target_is_directory=True)
-
-# We should do some cleanup when certs are removed from db
 
 info("Ended autoca")
