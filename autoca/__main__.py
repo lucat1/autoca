@@ -96,23 +96,26 @@ for cert in state.certs:
         cert = create_certificate(kp, state.ca, domain, month, month + timedelta(days=config.certificates.duration))
         state.add_certificate(cert)
 
+# Deep copy can't be done as RSAPrivateKey cannot be pickled
+new_state = State().from_dict(state.to_dict())
+
 # Add new domains
 for domain in config.certificates.domains:
-    cert_domains = map(lambda c: c.domain, state.certs)
+    cert_domains = map(lambda c: c.domain, new_state.certs)
     if domain not in cert_domains:
-        info("Adding cert for domain %s", cert.domain)
+        info("Adding cert for domain %s", new_cert.domain)
         kp = generate_keypair()
-        cert = create_certificate(kp, state.ca, domain, month, month + timedelta(days=config.certificates.duration))
-        state.add_certificate(cert)
+        cert = create_certificate(kp, new_state.ca, domain, month, month + timedelta(days=config.certificates.duration))
+        new_state.add_certificate(cert)
 
 
 info("Saving DB")
-debug("db: %r", state.to_dict())
+debug("db: %r", new_state.to_dict())
 
-state.to_file(db_path)
+new_state.to_file(db_path)
 
 info("Writing ca files")
-state.ca.to_files(Path(config.storage))
+new_state.ca.to_files(Path(config.storage))
 
 certs_dir_path = Path(config.storage).joinpath("certs")
 makedirs(certs_dir_path, exist_ok=True)
@@ -122,7 +125,7 @@ makedirs(hosts_dir_path, exist_ok=True)
 
 info("Writing certificates")
 
-for cert in state.certs:
+for cert in new_state.certs:
     dir_name = sha256(cert.domain.encode()).hexdigest()
     dir = certs_dir_path.joinpath(dir_name)
     makedirs(dir, exist_ok=True)
