@@ -6,9 +6,8 @@ from typing import TypedDict, cast
 from pathlib import Path
 from logging import basicConfig as logger_config, getLogger, StreamHandler, debug, info, error
 from logging import CRITICAL, FATAL, ERROR, WARNING, WARN, INFO, DEBUG
-from os import environ, makedirs, symlink
+from os import environ
 from sys import stdout
-from hashlib import sha256
 
 from autoca.primitives.crypto import generate_keypair, create_certificate
 from autoca.state import State
@@ -107,23 +106,7 @@ debug("db: %r", new_state.to_dict())
 
 new_state.to_file(db_path)
 
-info("Writing ca files")
-new_state.ca.to_files(Path(config.storage))
-
-certs_dir_path = Path(config.storage).joinpath("certs")
-makedirs(certs_dir_path, exist_ok=True)
-
-hosts_dir_path = Path(config.storage).joinpath("hosts")
-makedirs(hosts_dir_path, exist_ok=True)
-
-info("Writing certificates")
-
-for cert in new_state.certs:
-    dir_name = sha256(cert.domain.encode()).hexdigest()
-    dir = certs_dir_path.joinpath(dir_name)
-    makedirs(dir, exist_ok=True)
-    cert.to_files(dir)
-
-    create_symlink_if_not_present(Path("../certs/").joinpath(dir_name), hosts_dir_path.joinpath(cert.domain), target_is_directory=True)
+info("Writing files")
+new_state.certs_to_files(Path(config.storage))
 
 info("Ended autoca")

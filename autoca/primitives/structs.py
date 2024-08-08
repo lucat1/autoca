@@ -89,33 +89,6 @@ class CA(KeyPair):
             encoding=serialization.Encoding.PEM
         )
 
-    # Method to generate ca.crt, ca.key, ca.pub given dir path
-    def to_files(self, dir: Path):
-        # ca.crt
-        crt_path = Path(dir).joinpath("ca.crt")
-        try:
-            check_write_file(crt_path, self.certificate_bytes)
-        except:
-            import traceback
-            error("Could not check ca.crt. %r", traceback.format_exc())
-
-        # ca.key
-        key_path = Path(dir).joinpath("ca.key")
-        try:
-            check_write_file(key_path, self.key_bytes)
-        except:
-            import traceback
-            error("Could not check ca.key. %r", traceback.format_exc())
-
-        # ca.pub
-        pub_path = Path(dir).joinpath("ca.pub")
-        try:
-            check_write_file(pub_path, self.public_key_bytes)
-        except:
-            import traceback
-            error("Could not check ca.pub. %r", traceback.format_exc())
-
-
     def to_dict(self) -> Dict[str, Any]:
         return super().to_dict() | {
             "sn": self.sn,
@@ -167,32 +140,6 @@ class Certificate(KeyPair):
         return self.certificate.public_bytes(
             encoding=serialization.Encoding.PEM
         )
-
-    def to_files(self, dir: Path):
-        # cert.crt
-        crt_path = Path(dir).joinpath("cert.crt")
-        try:
-            check_write_file(crt_path, self.certificate_bytes)
-        except:
-            import traceback
-            error("Could not check ca.crt. %r", traceback.format_exc())
-
-        # key.key
-        key_path = Path(dir).joinpath("ca.key")
-        try:
-            check_write_file(key_path, self.key_bytes)
-        except:
-            import traceback
-            error("Could not check ca.key. %r", traceback.format_exc())
-
-        # key.pub
-        pub_path = Path(dir).joinpath("ca.pub")
-        try:
-            check_write_file(pub_path, self.public_key_bytes)
-        except:
-            import traceback
-            error("Could not check ca.pub. %r", traceback.format_exc())
-
 
     def to_dict(self) -> Dict[str, Any]:
         return super().to_dict() | {
