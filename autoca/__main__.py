@@ -95,6 +95,16 @@ for domain in config.certificates.domains:
         cert = create_certificate(kp, new_state.ca, domain, month, month + timedelta(days=config.certificates.duration))
         new_state.add_certificate(cert)
 
+# Update expired certs
+for c in state.certs():
+    if c.end <= now:
+        info("Updating certificate for %s", domain)
+        kp = generate_keypair()
+        cert = create_certificate(kp, new_state.ca, c.domain, month, month + timedelta(days=config.certificates.duration))
+        new_state.delete_certificate(cert)
+        new_state.add_certificate(cert)
+
+
 new_state.update_fs(state, root_path)
 
 info("Saving DB")
