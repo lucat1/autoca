@@ -54,7 +54,6 @@ class CertificatesConfig:
 @dataclass
 class Config:
     storage: str
-    group: str
     ca: CAConfig
     certificates: CertificatesConfig
     hosts: list[Host]
@@ -67,12 +66,6 @@ config_path = Path(environ[CONFIG_PATH_ENV] if CONFIG_PATH_ENV in environ else "
 config = read_config(config_path)
 
 # Checks for config
-try:
-    getgrnam(config.group)
-except KeyError:
-    error("Group '%s' not found, can't continue", config.group)
-    exit(1)
-
 for h in config.hosts:
     try:
         getgrnam(h.user)
@@ -115,7 +108,7 @@ for host in config.hosts:
         info("Adding cert for domain %s", host.domain)
         kp = generate_keypair()
         cert = create_certificate(kp, new_state.ca, host.domain, start, start + timedelta(days=config.certificates.duration))
-        new_state.add_certificate(cert, Permissions(0, "", ""))
+        new_state.add_certificate(cert, Permissions(permissions=0o640, user="root", group=host.user))
 
 # Update expired certs
 for c in state.certs:
@@ -124,7 +117,7 @@ for c in state.certs:
         kp = generate_keypair()
         cert = create_certificate(kp, new_state.ca, c.domain, start, start + timedelta(days=config.certificates.duration))
         new_state.delete_certificate(cert, Permissions(0, "", ""))
-        new_state.add_certificate(cert, Permissions(0, "", ""))
+        new_state.add_certificate(cert, Permissions(permissions=0o640, user="root", group=host.user))
 
 
 new_state.update_fs(state, root_path)

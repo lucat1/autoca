@@ -1,5 +1,4 @@
 storage = "/tmp/test"
-group = "certs"
 
 [ca]
 cn = "Teapot Root CA"
