@@ -100,23 +100,29 @@ new_state = State().from_dict(state.to_dict())
 # We should check if the CA in config is changed and then modify the state
 
 now = datetime.now()
-start = datetime(year=now.year, month=now.month, day=1)
+duration = timedelta(days=config.certificates.duration)
+duration_halfed = duration // 2
+start = datetime.fromtimestamp((now.timestamp() // duration_halfed.total_seconds()) * duration_halfed.total_seconds())
+info("start: " + str(start))
+info("renew: " + str(start + duration_halfed))
+info("expired: " + str(start + duration))
+
 # Add new hosts
 cert_domains = [c[0].domain for c in state.certs]
 for host in config.hosts:
     if host.domain not in cert_domains:
         info("Adding cert for domain %s", host.domain)
         kp = generate_keypair()
-        cert = create_certificate(kp, new_state.ca, host.domain, start, start + timedelta(days=config.certificates.duration))
+        cert = create_certificate(kp, new_state.ca, host.domain, start, start + duration)
         new_state.add_certificate(cert, Permissions(permissions=0o640, user="root", group=host.user))
 
 # Update expired certs
 for c in state.certs:
-    if c[0].end <= now:
-        info("Updating certificate for %s", c.domain)
+    if now >= c[0].start + duration_halfed:
+        info("Updating certificate for %s", c[0].domain)
         kp = generate_keypair()
-        cert = create_certificate(kp, new_state.ca, c.domain, start, start + timedelta(days=config.certificates.duration))
-        new_state.delete_certificate(cert, Permissions(0, "", ""))
+        cert = create_certificate(kp, new_state.ca, c[0].domain, start, start + duration)
+        new_state.delete_certificate(cert)
         new_state.add_certificate(cert, Permissions(permissions=0o640, user="root", group=host.user))
 
 

@@ -71,8 +71,6 @@ def check_write_file(file_path: Path, content: bytes,
         crt.write(content)
         crt.close()
 
-    print(file_path)
-    print(permission.to_dict())
     if permission is not None:
         chown(file_path, permission.uid, permission.gid)
         chmod(file_path, permission.permissions)

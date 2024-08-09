@@ -64,10 +64,10 @@ class State(Serializable, Deserializable):
         self._certs.append([cert, perm])
         self._updated()
 
-    def delete_certificate(self, cert: Certificate, perm: Permissions):
+    def delete_certificate(self, cert: Certificate):
         assert self._certs is not None
-        # Probably we should not require perm to remove...
-        self._certs.remove([cert, perm])
+        tmp = [x for x in self._certs if x[0].domain != cert.domain]
+        self._certs = tmp
         self._updated()
 
     @property
