@@ -6,3 +6,19 @@ duration = 21900 # 21900 days = ~ 60 years
 
 [certificates]
 duration = 60 # 60 days = ~ two monts
+
+[[ hosts ]]
+domain = "test.com"
+user = "user1"
+
+[[ hosts ]]
+domain = "castoro.it"
+user = "user2"
+
+[[ hosts ]]
+domain = "pippo.io"
+user = "user3"
+
+[[ hosts ]]
+domain = "pluto.dev"
+user = "user4"

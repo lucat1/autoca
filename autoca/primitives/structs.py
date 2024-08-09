@@ -1,11 +1,14 @@
 from typing import Any, Dict, Self, cast, Optional
 from datetime import datetime
+from pathlib import Path
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography import x509
+from logging import debug, info, error
 
 from autoca.primitives.serde import Serializable, Deserializable
+from autoca.primitives.utils import check_write_file
 
 class KeyPair(Serializable, Deserializable):
     KEY_ENCODNIG = serialization.Encoding.PEM
@@ -17,6 +20,9 @@ class KeyPair(Serializable, Deserializable):
 
     def __init__(self, key: Optional[rsa.RSAPrivateKey] = None) -> None:
         self._key = key
+
+    def __eq__(self, other: Self):
+        return self.key_bytes == other.key_bytes
 
     @property
     def key(self) -> rsa.RSAPrivateKey:
@@ -59,6 +65,9 @@ class CA(KeyPair):
         self._start = start
         self._end = end
         self._certificate = certificate
+
+    def __eq__(self, other: Self):
+        return self.key_bytes == other.key_bytes and self.sn == other.sn and self.start == other.start and self._end == other.end and self.certificate_bytes == other.certificate_bytes
 
     @property
     def sn(self) -> str:
@@ -111,6 +120,9 @@ class Certificate(KeyPair):
         self._start = start
         self._end = end
         self._certificate = certificate
+
+    def __eq__(self, other: Self):
+        return self.key_bytes == other.key_bytes and self.domain == other.domain and self.start == other.start and self._end == other.end and self.certificate_bytes == other.certificate_bytes
 
     @property
     def domain(self) -> str:
