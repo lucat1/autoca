@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
+from getpass import getuser
 from dacite import from_dict
 from tomllib import load as parse_toml
-from typing import TypedDict, cast
 from pathlib import Path
 from logging import basicConfig as logger_config, getLogger, StreamHandler, debug, info, error
 from logging import CRITICAL, FATAL, ERROR, WARNING, WARN, INFO, DEBUG
@@ -11,9 +11,8 @@ from sys import stdout
 from grp import getgrnam
 
 from autoca.primitives.crypto import generate_keypair, create_certificate
-from autoca.state import State, Permissions
+from autoca.state import State, File
 from autoca.primitives import create_ca
-from autoca.primitives.utils import create_symlink_if_not_present
 
 CONFIG_PATH_ENV = "AUTOCA_CONFIG"
 LOG_PATH_ENV = "AUTOCA_LOG"
@@ -54,6 +53,8 @@ class CertificatesConfig:
 @dataclass
 class Config:
     storage: str
+    shared_group: str
+
     ca: CAConfig
     certificates: CertificatesConfig
     hosts: list[Host]
@@ -64,6 +65,12 @@ def read_config(path: Path):
 
 config_path = Path(environ[CONFIG_PATH_ENV] if CONFIG_PATH_ENV in environ else "/etc/autoca/autoca.toml")
 config = read_config(config_path)
+
+try:
+    shared_group = getgrnam(config.shared_group)
+except KeyError:
+    error("Shared group '%s' not found, can't continue", config.shared_group)
+    exit(1)
 
 # Checks for config
 for h in config.hosts:
@@ -91,7 +98,7 @@ if not state.initialized:
     ca = create_ca(kp, config.ca.cn, time, time + timedelta(days=config.ca.duration))
     state.set_ca(ca)
     # I have to force the sync to fs in order to set new CA
-    state.update_fs(None, root_path)
+    state.update_fs(None, root_path, shared_group)
     assert state.initialized
 
 # Deep copy can't be done as RSAPrivateKey cannot be pickled
@@ -114,19 +121,19 @@ for host in config.hosts:
         info("Adding cert for domain %s", host.domain)
         kp = generate_keypair()
         cert = create_certificate(kp, new_state.ca, host.domain, start, start + duration)
-        new_state.add_certificate(cert, Permissions(permissions=0o640, user="root", group=host.user))
+        new_state.add_certificate(cert, File(permissions=0o640, user=getuser(), group=host.user))
 
 # Update expired certs
-for c in state.certs:
-    if now >= c[0].start + duration_halfed:
-        info("Updating certificate for %s", c[0].domain)
+for cert, file in state.certs:
+    if now >= cert.start + duration_halfed:
+        info("Updating certificate for %s", cert.domain)
         kp = generate_keypair()
-        cert = create_certificate(kp, new_state.ca, c[0].domain, start, start + duration)
+        cert = create_certificate(kp, new_state.ca, cert.domain, start, start + duration)
         new_state.delete_certificate(cert)
-        new_state.add_certificate(cert, Permissions(permissions=0o640, user="root", group=host.user))
+        new_state.add_certificate(cert, File(permissions=0o640, user="root", group=file.user))
 
 
-new_state.update_fs(state, root_path)
+new_state.update_fs(state, root_path, shared_group)
 
 info("Saving DB")
 debug("db: %r", new_state.to_dict())

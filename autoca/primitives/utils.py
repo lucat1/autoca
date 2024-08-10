@@ -7,7 +7,7 @@ from grp import getgrnam
 
 from autoca.primitives.serde import Serializable, Deserializable
 
-class Permissions(Serializable, Deserializable):
+class File(Serializable, Deserializable):
     def __init__(self, permissions: int = None, user: str = None, group: str = None):
         self._permissions = permissions
         self._user = user
@@ -27,7 +27,7 @@ class Permissions(Serializable, Deserializable):
         return self._user
 
     @property
-    def uid(self) -> str:
+    def uid(self) -> int:
         return getpwnam(self.user).pw_uid
 
     @property
@@ -36,7 +36,7 @@ class Permissions(Serializable, Deserializable):
         return self._group
 
     @property
-    def gid(self) -> str:
+    def gid(self) -> int:
         return getgrnam(self.group).gr_gid
 
     def to_dict(self) -> Dict[str, Any]:
@@ -56,8 +56,7 @@ class Permissions(Serializable, Deserializable):
 # Check if the file exists or the content is equal to content. If is not equal 
 # write the content to the file
 def check_write_file(file_path: Path, content: bytes, 
-                     permission: Optional[Permissions] = None):
-
+                     permission: Optional[File] = None):
     try:
         crt = open(file_path, "rb")
         if crt.read() != content:

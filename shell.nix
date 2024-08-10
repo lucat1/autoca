@@ -13,5 +13,5 @@ in pkgs.mkShell {
     export AUTOCA_CONFIG="$PWD/config.toml"
     export AUTOCA_LOG="$PWD/latest.log"
   '';
-  AUTOCA_LOGLEVEL = "DEBUG";
+  AUTOCA_LOGLEVEL = "INFO";
 }
