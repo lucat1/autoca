@@ -127,7 +127,7 @@ def _sign_csr(ca: CA, csr: x509.CertificateSigningRequest, start: datetime, end:
     assert isinstance(certificate, x509.Certificate)
     return certificate
 
-def create_certificate(key_pair: KeyPair, ca: CA, domain: str, start: datetime, end: datetime) -> Certificate:
+def create_certificate(key_pair: KeyPair, ca: CA, domain: str, start: datetime, end: datetime, user: str) -> Certificate:
     csr = _generate_csr(key_pair, domain)
     certificate = _sign_csr(ca, csr, start, end)
-    return Certificate(key=key_pair.key, domain=domain, start=start, end=end, certificate=certificate)
+    return Certificate(key=key_pair.key, domain=domain, start=start, end=end, certificate=certificate, user=user)

@@ -6,13 +6,14 @@ from tomllib import load as parse_toml
 from pathlib import Path
 from logging import basicConfig as logger_config, getLogger, StreamHandler, debug, info, error
 from logging import CRITICAL, FATAL, ERROR, WARNING, WARN, INFO, DEBUG
-from os import environ
+from os import environ, getuid
 from sys import stdout
 from grp import getgrnam
 
 from autoca.primitives.crypto import generate_keypair, create_certificate
-from autoca.state import State, File
+from autoca.state import State
 from autoca.primitives import create_ca
+from autoca.writer import SUPER_UID, Writer
 
 CONFIG_PATH_ENV = "AUTOCA_CONFIG"
 LOG_PATH_ENV = "AUTOCA_LOG"
@@ -32,6 +33,10 @@ log_path = Path(environ[LOG_PATH_ENV] if LOG_PATH_ENV in environ else "/etc/auto
 loglevel = environ[LOGLEVEL_ENV] if LOGLEVEL_ENV in environ else "INFO"
 logger_config(filename=log_path, level=log_levels[loglevel], filemode='a', format="%(asctime)s - %(message)s")
 getLogger().addHandler(StreamHandler(stdout))
+
+if getuid() != SUPER_UID:
+    print("autoca must be run as root!")
+    exit(1)
 
 info("Started autoca")
 
@@ -77,7 +82,7 @@ for h in config.hosts:
     try:
         getgrnam(h.user)
     except KeyError:
-        error("Group '%s' not found, can't continue", h.user)
+        error("Group '%s' for host '%s' not found, can't continue", h.user, h.domain)
         exit(1)
 
 root_path = Path(config.storage)
@@ -92,52 +97,61 @@ except:
     error("Could not parse database file: %r", traceback.format_exc())
     state = State()
 
-if not state.initialized:
+# Deep copy can't be done as RSAPrivateKey cannot be pickled
+new_state = state.clone()
+writer = Writer(shared_group.gr_gid)
+
+if not new_state.initialized:
     time = datetime.now()
     kp = generate_keypair()
     ca = create_ca(kp, config.ca.cn, time, time + timedelta(days=config.ca.duration))
-    state.set_ca(ca)
-    # I have to force the sync to fs in order to set new CA
-    state.update_fs(None, root_path, shared_group)
-    assert state.initialized
+    new_state.set_ca(ca)
+    assert new_state.initialized
 
-# Deep copy can't be done as RSAPrivateKey cannot be pickled
-new_state = State().from_dict(state.to_dict())
+old_state = state
 
 # We should check if the CA in config is changed and then modify the state
 
 now = datetime.now()
-duration = timedelta(days=config.certificates.duration)
-duration_halfed = duration // 2
-start = datetime.fromtimestamp((now.timestamp() // duration_halfed.total_seconds()) * duration_halfed.total_seconds())
-info("start: " + str(start))
-info("renew: " + str(start + duration_halfed))
-info("expired: " + str(start + duration))
+duration = timedelta(minutes=config.certificates.duration)
+duration_halved = duration // 2
+start = datetime.fromtimestamp((now.timestamp() // duration_halved.total_seconds()) * duration_halved.total_seconds())
+info(f"Current period start\t{start}")
+info(f"Current period renew\t{str(start + duration_halved)}")
+info(f"Current period end\t{str(start + duration)}")
 
 # Add new hosts
-cert_domains = [c[0].domain for c in state.certs]
 for host in config.hosts:
-    if host.domain not in cert_domains:
-        info("Adding cert for domain %s", host.domain)
+    # Add certificates for mising or expired hosts
+    certs = old_state.certs_by_domain(host.domain)
+    add = False
+    if len(certs) == 0:
+        add = True
+        cause = "intial"
+
+    if not add:
+        newest_cert = old_state.most_recent(host.domain)
+        add = newest_cert.end <= datetime.now() + duration_halved
+        cause = "soon to expire"
+
+    if add:
+        info("Adding cert for domain %s (cause: %s)", host.domain, cause) # type: ignore
         kp = generate_keypair()
-        cert = create_certificate(kp, new_state.ca, host.domain, start, start + duration)
-        new_state.add_certificate(cert, File(permissions=0o640, user=getuser(), group=host.user))
+        cert = create_certificate(kp, new_state.ca, host.domain, start, start + duration, host.user)
+        new_state.add_certificate(cert)
 
-# Update expired certs
-for cert, file in state.certs:
-    if now >= cert.start + duration_halfed:
-        info("Updating certificate for %s", cert.domain)
-        kp = generate_keypair()
-        cert = create_certificate(kp, new_state.ca, cert.domain, start, start + duration)
-        new_state.delete_certificate(cert)
-        new_state.add_certificate(cert, File(permissions=0o640, user="root", group=file.user))
+diff = new_state.diff(old_state)
 
-
-new_state.update_fs(state, root_path, shared_group)
+print(diff)
 
 info("Saving DB")
 debug("db: %r", new_state.to_dict())
 
-new_state.to_file(db_path)
+
+try:
+    new_state.to_file(db_path)
+except:
+    import traceback
+    error("Could not write db: %r", traceback.format_exc())
 
 info("Ended autoca")
