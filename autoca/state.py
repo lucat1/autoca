@@ -4,9 +4,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Self, Optional, Set, TypedDict, cast
 from tomllib import load as read_toml
 from tomli_w import dumps as write_toml
+from os import chmod, chown
 
 from autoca.primitives import Serializable, Deserializable, CA, CADict, Certificate, CertificateDict, Link, LinkDict
-from autoca.writer import SUPER_GID, SUPER_UID, Change, ChangeKind, Permission, write_safely
+from autoca.writer import SUPER_GID, SUPER_UID, Change, ChangeKind, Permission
 
 CA_DIR = "ca"
 
@@ -98,7 +99,12 @@ class State(Serializable[StateDict], Deserializable):
     def to_file(self, path: Path):
         d = cast(Dict[str, Any], self.to_dict())
         b = bytes(write_toml(d), "utf-8")
-        write_safely(path, b, Permission(0o600, SUPER_UID, SUPER_GID), True)
+        
+        crt = open(path, "wb")
+        crt.write(b)
+        crt.close()
+        chown(path, SUPER_UID, SUPER_GID)
+        chmod(path, 0o600)
 
     def from_dict(self, dict: StateDict) -> Self:
         time = datetime.fromtimestamp(float(dict["time"]))

@@ -2,8 +2,7 @@ from grp import getgrnam
 from logging import error
 from enum import Enum
 from pathlib import Path
-from os import chmod, chown
-from os.path import exists
+from os import chown
 from dataclasses import dataclass
 from typing import Set
 
@@ -30,19 +29,6 @@ class Permission:
     mode: int
     user: int
     group: int
-
-def write_safely(path: Path, content: bytes, permission: Permission, overwrite = False):
-    if exists(path) and not overwrite:
-        error("Attempted to overwrite a file %s", path)
-        return
-
-    crt = open(path, "wb")
-    crt.write(content)
-    crt.close()
-
-    if permission is not None:
-        chown(path, permission.user, permission.group)
-        chmod(path, permission.mode)
 
 class ChangeKind(Enum):
     create = 'create'
