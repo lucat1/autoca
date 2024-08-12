@@ -96,7 +96,7 @@ except:
 
 # Deep copy can't be done as RSAPrivateKey cannot be pickled
 new_state = state.clone()
-writer = Writer(shared_group.gr_gid)
+writer = Writer(root_path, shared_group.gr_gid)
 
 if not new_state.initialized:
     time = datetime.now()
@@ -113,9 +113,11 @@ now = datetime.now()
 duration = timedelta(minutes=config.certificates.duration)
 duration_halved = duration // 2
 start = datetime.fromtimestamp((now.timestamp() // duration_halved.total_seconds()) * duration_halved.total_seconds())
+mid = start + duration_halved
+end = start + duration
 info(f"Current period start\t{start}")
-info(f"Current period renew\t{str(start + duration_halved)}")
-info(f"Current period end\t{str(start + duration)}")
+info(f"Current period renew\t{mid}")
+info(f"Current period end\t{end}")
 
 # Add new hosts
 for host in config.hosts:
@@ -144,6 +146,7 @@ debug("Raw diff: %r", diff)
 diff = set(filter(lambda change: change.kind != ChangeKind.delete, diff))
 for change in diff:
     print(change)
+writer.apply_many(diff)
 
 info("Saving DB")
 debug("New db: %r", new_state.to_dict())

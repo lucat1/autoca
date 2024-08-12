@@ -4,7 +4,7 @@ from pathlib import Path
 from os import chmod, chown
 from os.path import exists
 from dataclasses import dataclass
-from typing import Set, Callable
+from typing import Set
 
 from autoca.primitives.structs import CA, Certificate, Link
 
@@ -43,5 +43,32 @@ class Change:
         return f"{self.kind.value}\t\t{self.entity}"
 
 class Writer:
-    def __init__(self, shared_gid: int) -> None:
+    def __init__(self, root: Path, shared_gid: int) -> None:
+        self._root = root
         self._shared_gid = shared_gid
+
+    def create_certificate(self, cert: CA | Certificate) -> None:
+        raise NotImplementedError()
+
+    def create_link(self, link: Link) -> None:
+        raise NotImplementedError()
+
+    def apply(self, change: Change) -> None:
+        match change.kind:
+            case ChangeKind.create:
+                match change.entity:
+                    case CA():
+                        self.create_certificate(change.entity)
+                    case Certificate():
+                        self.create_certificate(change.entity)
+                    case Link():
+                        self.create_link(change.entity)
+                    case other:
+                        error('Cannot handle the creation of unkown entity %r', type(other))
+
+            case ChangeKind.delete:
+                raise NotImplementedError()
+
+    def apply_many(self, changes: Set[Change]) -> None:
+        for change in changes:
+            self.apply(change)
