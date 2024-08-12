@@ -3,7 +3,14 @@ from dataclasses import dataclass, field
 from dacite import from_dict
 from tomllib import load as parse_toml
 from pathlib import Path
-from logging import basicConfig as logger_config, getLogger, StreamHandler, debug, info, error
+from logging import (
+    basicConfig as logger_config,
+    getLogger,
+    StreamHandler,
+    debug,
+    info,
+    error,
+)
 from logging import CRITICAL, FATAL, ERROR, WARNING, WARN, INFO, DEBUG
 from os import environ, getuid
 from sys import stdout
@@ -19,18 +26,25 @@ LOG_PATH_ENV = "AUTOCA_LOG"
 LOGLEVEL_ENV = "AUTOCA_LOGLEVEL"
 
 log_levels = {
-    "CRITICAL" : CRITICAL,
-    "FATAL" : FATAL,
-    "ERROR" : ERROR,
-    "WARNING" : WARNING,
-    "WARN" : WARN,
-    "INFO" : INFO,
-    "DEBUG" : DEBUG
+    "CRITICAL": CRITICAL,
+    "FATAL": FATAL,
+    "ERROR": ERROR,
+    "WARNING": WARNING,
+    "WARN": WARN,
+    "INFO": INFO,
+    "DEBUG": DEBUG,
 }
 
-log_path = Path(environ[LOG_PATH_ENV] if LOG_PATH_ENV in environ else "/etc/autoca/latest.log")
+log_path = Path(
+    environ[LOG_PATH_ENV] if LOG_PATH_ENV in environ else "/etc/autoca/latest.log"
+)
 loglevel = environ[LOGLEVEL_ENV] if LOGLEVEL_ENV in environ else "INFO"
-logger_config(filename=log_path, level=log_levels[loglevel], filemode='a', format="%(asctime)s - %(message)s")
+logger_config(
+    filename=log_path,
+    level=log_levels[loglevel],
+    filemode="a",
+    format="%(asctime)s - %(message)s",
+)
 getLogger().addHandler(StreamHandler(stdout))
 
 if getuid() != SUPER_UID:
@@ -39,20 +53,24 @@ if getuid() != SUPER_UID:
 
 info("Started autoca")
 
+
 @dataclass
 class Host:
     domain: str
     user: str
 
+
 @dataclass
 class CAConfig:
     cn: str
-    duration: int = 365 * 60 # ~ 60ys
+    duration: int = 365 * 60  # ~ 60ys
+
 
 @dataclass
 class CertificatesConfig:
-    duration: int = 60 # ~ 2 starts
+    duration: int = 60  # ~ 2 starts
     domains: list[str] = field(default_factory=list)
+
 
 @dataclass
 class Config:
@@ -63,7 +81,12 @@ class Config:
     certificates: CertificatesConfig
     hosts: list[Host]
 
-config_path = Path(environ[CONFIG_PATH_ENV] if CONFIG_PATH_ENV in environ else "/etc/autoca/autoca.toml")
+
+config_path = Path(
+    environ[CONFIG_PATH_ENV]
+    if CONFIG_PATH_ENV in environ
+    else "/etc/autoca/autoca.toml"
+)
 config_file = open(config_path, mode="rb")
 config = from_dict(data_class=Config, data=parse_toml(config_file))
 
@@ -91,6 +114,7 @@ except FileNotFoundError:
     state = State()
 except:
     import traceback
+
     error("Could not parse database file: %r", traceback.format_exc())
     state = State()
 
@@ -111,7 +135,10 @@ old_state = state
 
 duration = timedelta(days=config.certificates.duration)
 duration_halved = duration // 2
-start = datetime.fromtimestamp((now.timestamp() // duration_halved.total_seconds()) * duration_halved.total_seconds())
+start = datetime.fromtimestamp(
+    (now.timestamp() // duration_halved.total_seconds())
+    * duration_halved.total_seconds()
+)
 mid = start + duration_halved
 end = start + duration
 info(f"Current period start\t{start}")
@@ -133,9 +160,11 @@ for host in config.hosts:
         cause = "close to expiry"
 
     if add:
-        info("Adding cert for domain %s (cause: %s)", host.domain, cause) # type: ignore
+        info("Adding cert for domain %s (cause: %s)", host.domain, cause)  # type: ignore
         kp = generate_keypair()
-        cert = create_certificate(kp, new_state.ca, host.domain, start, start + duration, host.user)
+        cert = create_certificate(
+            kp, new_state.ca, host.domain, start, start + duration, host.user
+        )
         new_state.add_certificate(cert)
 
 diff = new_state.diff(old_state)
@@ -154,6 +183,7 @@ if new_state != old_state:
         new_state.to_file(db_path)
     except:
         import traceback
+
         error("Could not write db: %r", traceback.format_exc())
 
 info("Ended autoca")

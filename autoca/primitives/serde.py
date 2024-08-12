@@ -2,12 +2,17 @@ from typing import Generic, Self, TypeVar, TypedDict
 from abc import ABC, abstractmethod
 
 D = TypeVar("D")
+
+
 class Deserializable(ABC, Generic[D]):
     @abstractmethod
     def from_dict(self, dict: D) -> Self:
         raise NotImplementedError()
 
+
 S = TypeVar("S", TypedDict, TypedDict)
+
+
 class Serializable(ABC, Generic[S]):
     @abstractmethod
     def to_dict(self) -> S:

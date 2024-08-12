@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509.oid import NameOID
 
+
 def generate_keypair(public_exponent=65537, key_size=4096) -> KeyPair:
     key = rsa.generate_private_key(
         backend=default_backend(),
@@ -19,16 +20,16 @@ def generate_keypair(public_exponent=65537, key_size=4096) -> KeyPair:
     )
     return KeyPair(key)
 
-def create_ca(
-    key_pair: KeyPair,
-    sn: str,
-    start: datetime,
-    end: datetime
-) -> CA:
+
+def create_ca(key_pair: KeyPair, sn: str, start: datetime, end: datetime) -> CA:
     issuer = sn
     builder = x509.CertificateBuilder()
-    builder = builder.subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, sn)]))
-    builder = builder.issuer_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, issuer)]))
+    builder = builder.subject_name(
+        x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, sn)])
+    )
+    builder = builder.issuer_name(
+        x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, issuer)])
+    )
     builder = builder.add_extension(
         x509.SubjectAlternativeName([x509.DNSName(sn)]),
         critical=False,
@@ -37,20 +38,24 @@ def create_ca(
     builder = builder.not_valid_after(end)
     builder = builder.serial_number(x509.random_serial_number())
     builder = builder.public_key(key_pair.public_key)
-    builder = builder.add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
-    certificate = builder.sign(private_key=key_pair.key, algorithm=hashes.SHA256(), backend=default_backend())
+    builder = builder.add_extension(
+        x509.BasicConstraints(ca=True, path_length=None), critical=True
+    )
+    certificate = builder.sign(
+        private_key=key_pair.key, algorithm=hashes.SHA256(), backend=default_backend()
+    )
     return CA(key=key_pair.key, sn=sn, start=start, end=end, certificate=certificate)
 
-def sign_cert(
-    key_pair: KeyPair,
-    sn: str,
-    start: datetime,
-    end: datetime
-) -> CA:
+
+def sign_cert(key_pair: KeyPair, sn: str, start: datetime, end: datetime) -> CA:
     issuer = sn
     builder = x509.CertificateBuilder()
-    builder = builder.subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, sn)]))
-    builder = builder.issuer_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, issuer)]))
+    builder = builder.subject_name(
+        x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, sn)])
+    )
+    builder = builder.issuer_name(
+        x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, issuer)])
+    )
     builder = builder.add_extension(
         x509.SubjectAlternativeName([x509.DNSName(sn)]),
         critical=False,
@@ -59,27 +64,39 @@ def sign_cert(
     builder = builder.not_valid_after(end)
     builder = builder.serial_number(x509.random_serial_number())
     builder = builder.public_key(key_pair.public_key)
-    builder = builder.add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
-    certificate = builder.sign(private_key=key_pair.key, algorithm=hashes.SHA256(), backend=default_backend())
-    assert(isinstance(certificate, x509.Certificate))
+    builder = builder.add_extension(
+        x509.BasicConstraints(ca=True, path_length=None), critical=True
+    )
+    certificate = builder.sign(
+        private_key=key_pair.key, algorithm=hashes.SHA256(), backend=default_backend()
+    )
+    assert isinstance(certificate, x509.Certificate)
     return CA(key=key_pair.key, sn=sn, start=start, end=end, certificate=certificate)
 
 
 def _generate_csr(key_pair: KeyPair, domain: str) -> x509.CertificateSigningRequest:
     csr_builder = x509.CertificateSigningRequestBuilder()
-    csr_builder = csr_builder.subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, domain)]))
+    csr_builder = csr_builder.subject_name(
+        x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, domain)])
+    )
     csr_builder = csr_builder.add_extension(
         x509.SubjectAlternativeName([x509.DNSName(domain)]),
         critical=False,
     )
-    csr_builder = csr_builder.add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=False)
-    csr = csr_builder.sign(private_key=key_pair.key, algorithm=hashes.SHA256(), backend=default_backend())
+    csr_builder = csr_builder.add_extension(
+        x509.BasicConstraints(ca=True, path_length=None), critical=False
+    )
+    csr = csr_builder.sign(
+        private_key=key_pair.key, algorithm=hashes.SHA256(), backend=default_backend()
+    )
 
     assert isinstance(csr, x509.CertificateSigningRequest)
     return csr
 
 
-def _sign_csr(ca: CA, csr: x509.CertificateSigningRequest, start: datetime, end: datetime) -> x509.Certificate:
+def _sign_csr(
+    ca: CA, csr: x509.CertificateSigningRequest, start: datetime, end: datetime
+) -> x509.Certificate:
     certificate = x509.CertificateBuilder()
     certificate = certificate.subject_name(csr.subject)
     for extension in csr.extensions:
@@ -113,9 +130,7 @@ def _sign_csr(ca: CA, csr: x509.CertificateSigningRequest, start: datetime, end:
         critical=True,
     )
     certificate = certificate.add_extension(
-        x509.AuthorityKeyIdentifier.from_issuer_public_key(
-            csr.public_key()
-        ),
+        x509.AuthorityKeyIdentifier.from_issuer_public_key(csr.public_key()),
         critical=False,
     )
     certificate = certificate.sign(
@@ -127,7 +142,17 @@ def _sign_csr(ca: CA, csr: x509.CertificateSigningRequest, start: datetime, end:
     assert isinstance(certificate, x509.Certificate)
     return certificate
 
-def create_certificate(key_pair: KeyPair, ca: CA, domain: str, start: datetime, end: datetime, user: str) -> Certificate:
+
+def create_certificate(
+    key_pair: KeyPair, ca: CA, domain: str, start: datetime, end: datetime, user: str
+) -> Certificate:
     csr = _generate_csr(key_pair, domain)
     certificate = _sign_csr(ca, csr, start, end)
-    return Certificate(key=key_pair.key, domain=domain, start=start, end=end, certificate=certificate, user=user)
+    return Certificate(
+        key=key_pair.key,
+        domain=domain,
+        start=start,
+        end=end,
+        certificate=certificate,
+        user=user,
+    )

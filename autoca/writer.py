@@ -24,15 +24,18 @@ KEY_FILE = "cert.key"
 KEY_MODE_CERT = 0o640
 KEY_MODE_CA = 0o600
 
+
 @dataclass
 class Permission:
     mode: int
     user: int
     group: int
 
+
 class ChangeKind(Enum):
-    create = 'create'
-    delete = 'delete'
+    create = "create"
+    delete = "delete"
+
 
 @dataclass(frozen=True)
 class Change:
@@ -41,6 +44,7 @@ class Change:
 
     def __str__(self) -> str:
         return f"{self.kind.value}\t\t{self.entity}"
+
 
 class Writer:
     def __init__(self, root: Path, shared_gid: int) -> None:
@@ -67,9 +71,11 @@ class Writer:
         pub_path.touch(PUB_MODE, exist_ok=False)
         chown(pub_path, SUPER_UID, self._shared_gid)
         pub_path.write_bytes(cert.public_key_bytes)
-        
+
         key_path = path.joinpath(KEY_FILE)
-        key_path.touch(KEY_MODE_CA if isinstance(cert, CA) else KEY_MODE_CERT, exist_ok=False)
+        key_path.touch(
+            KEY_MODE_CA if isinstance(cert, CA) else KEY_MODE_CERT, exist_ok=False
+        )
         chown(key_path, SUPER_UID, gid)
         key_path.write_bytes(cert.key_bytes)
 
@@ -82,7 +88,9 @@ class Writer:
             parent_path = self._root
 
         link_path = parent_path.joinpath(link.name)
-        link_to = self._root.joinpath(CERTS_DIR, link.id).relative_to(parent_path, walk_up=True)
+        link_to = self._root.joinpath(CERTS_DIR, link.id).relative_to(
+            parent_path, walk_up=True
+        )
         if link_path.exists():
             link_path.unlink()
         link_path.symlink_to(link_to, target_is_directory=True)
@@ -98,7 +106,10 @@ class Writer:
                     case Link():
                         self.create_link(change.entity)
                     case other:
-                        error('Cannot handle the creation of unkown entity %r', type(other))
+                        error(
+                            "Cannot handle the creation of unkown entity %r",
+                            type(other),
+                        )
 
             case ChangeKind.delete:
                 raise NotImplementedError()

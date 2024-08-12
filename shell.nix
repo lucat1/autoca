@@ -6,6 +6,7 @@ in pkgs.mkShell {
       python-pkgs.cryptography
       python-pkgs.tomli-w
       python-pkgs.dacite
+      python-pkgs.black
     ]))
   ];
 

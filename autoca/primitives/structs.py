@@ -8,8 +8,10 @@ from cryptography import x509
 
 from autoca.primitives.serde import Serializable, Deserializable
 
+
 class KeyPairDict(TypedDict):
     key: str
+
 
 class KeyPair(Serializable[KeyPairDict], Deserializable[KeyPairDict]):
     KEY_ENCODNIG = serialization.Encoding.PEM
@@ -42,18 +44,20 @@ class KeyPair(Serializable[KeyPairDict], Deserializable[KeyPairDict]):
     @property
     def public_key_bytes(self) -> bytes:
         return self.public_key.public_bytes(
-            self.PUBLIC_KEY_ENCODNIG,
-            self.PUBLIC_KEY_FORMAT 
+            self.PUBLIC_KEY_ENCODNIG, self.PUBLIC_KEY_FORMAT
         )
 
     def to_dict(self) -> KeyPairDict:
         return {
-            "key": self.key_bytes.decode('utf-8'),
+            "key": self.key_bytes.decode("utf-8"),
         }
 
     def from_dict(self, dict: KeyPairDict) -> Self:
         data = bytes(dict["key"], "utf-8")
-        key = cast(rsa.RSAPrivateKey, serialization.load_pem_private_key(data, None, default_backend()))
+        key = cast(
+            rsa.RSAPrivateKey,
+            serialization.load_pem_private_key(data, None, default_backend()),
+        )
         return self.__class__(key=key)
 
     @property
@@ -63,14 +67,23 @@ class KeyPair(Serializable[KeyPairDict], Deserializable[KeyPairDict]):
     def __str__(self) -> str:
         return f"{self.id[:4]}..{self.id[-4:]}"
 
+
 class CADict(KeyPairDict):
     sn: str
     start: float
     end: float
     certificate: str
 
+
 class CA(KeyPair):
-    def __init__(self, key: Optional[rsa.RSAPrivateKey] = None, sn: Optional[str] = None, start: Optional[datetime] = None, end: Optional[datetime] = None, certificate: Optional[x509.Certificate] = None) -> None:
+    def __init__(
+        self,
+        key: Optional[rsa.RSAPrivateKey] = None,
+        sn: Optional[str] = None,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        certificate: Optional[x509.Certificate] = None,
+    ) -> None:
         super().__init__(key)
         self._sn = sn
         self._start = start
@@ -99,9 +112,7 @@ class CA(KeyPair):
 
     @property
     def certificate_bytes(self) -> bytes:
-        return self.certificate.public_bytes(
-            encoding=serialization.Encoding.PEM
-        )
+        return self.certificate.public_bytes(encoding=serialization.Encoding.PEM)
 
     def to_dict(self) -> CADict:
         return {
@@ -109,21 +120,24 @@ class CA(KeyPair):
             "sn": self.sn,
             "start": self.start.timestamp(),
             "end": self.end.timestamp(),
-            "certificate": self.certificate_bytes.decode('utf-8'),
+            "certificate": self.certificate_bytes.decode("utf-8"),
         }
 
-    def from_dict(self, dict: CADict) -> Self: # type: ignore
+    def from_dict(self, dict: CADict) -> Self:  # type: ignore
         key = super().from_dict(dict).key
         sn = dict["sn"]
         start = datetime.fromtimestamp(float(dict["start"]))
         end = datetime.fromtimestamp(float(dict["end"]))
         certificate = x509.load_pem_x509_certificate(
-            bytes(dict["certificate"], 'utf-8'), default_backend()
+            bytes(dict["certificate"], "utf-8"), default_backend()
         )
-        return self.__class__(key=key, sn=sn, start=start, end=end, certificate=certificate)
+        return self.__class__(
+            key=key, sn=sn, start=start, end=end, certificate=certificate
+        )
 
     def __str__(self) -> str:
         return f"{self.id[:4]}..{self.id[-4:]}\t{self.sn}\t{self.start}\t{self.end}"
+
 
 class CertificateDict(KeyPairDict):
     domain: str
@@ -132,8 +146,17 @@ class CertificateDict(KeyPairDict):
     certificate: str
     user: str
 
+
 class Certificate(KeyPair):
-    def __init__(self, key: Optional[rsa.RSAPrivateKey] = None, domain: Optional[str] = None, start: Optional[datetime] = None, end: Optional[datetime] = None, certificate: Optional[x509.Certificate] = None, user: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        key: Optional[rsa.RSAPrivateKey] = None,
+        domain: Optional[str] = None,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        certificate: Optional[x509.Certificate] = None,
+        user: Optional[str] = None,
+    ) -> None:
         super().__init__(key)
         self._domain = domain
         self._start = start
@@ -167,10 +190,8 @@ class Certificate(KeyPair):
 
     @property
     def certificate_bytes(self) -> bytes:
-        return self.certificate.public_bytes(
-            encoding=serialization.Encoding.PEM
-        )
-    
+        return self.certificate.public_bytes(encoding=serialization.Encoding.PEM)
+
     @property
     def user(self) -> str:
         assert self._user is not None
@@ -182,31 +203,47 @@ class Certificate(KeyPair):
             "domain": self.domain,
             "start": self.start.timestamp(),
             "end": self.end.timestamp(),
-            "certificate": self.certificate_bytes.decode('utf-8'),
+            "certificate": self.certificate_bytes.decode("utf-8"),
             "user": self.user,
         }
 
-    def from_dict(self, dict: CertificateDict) -> Self: # type: ignore
+    def from_dict(self, dict: CertificateDict) -> Self:  # type: ignore
         key = super().from_dict(dict).key
         domain = dict["domain"]
         start = datetime.fromtimestamp(float(dict["start"]))
         end = datetime.fromtimestamp(float(dict["end"]))
         certificate = x509.load_pem_x509_certificate(
-            bytes(dict["certificate"], 'utf-8'), default_backend()
+            bytes(dict["certificate"], "utf-8"), default_backend()
         )
         user = dict["user"]
-        return self.__class__(key=key, domain=domain, start=start, end=end, certificate=certificate, user=user)
+        return self.__class__(
+            key=key,
+            domain=domain,
+            start=start,
+            end=end,
+            certificate=certificate,
+            user=user,
+        )
 
     def __str__(self) -> str:
-        return f"{self.id[:4]}..{self.id[-4:]}\t{self.domain}\t{self.start}\t\t{self.end}"
+        return (
+            f"{self.id[:4]}..{self.id[-4:]}\t{self.domain}\t{self.start}\t\t{self.end}"
+        )
+
 
 class LinkDict(TypedDict):
     host: bool
     name: str
     id: str
 
+
 class Link(Serializable[LinkDict], Deserializable[LinkDict]):
-    def __init__(self, host: Optional[bool] = None, name: Optional[str] = None, id: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        host: Optional[bool] = None,
+        name: Optional[str] = None,
+        id: Optional[str] = None,
+    ) -> None:
         self._host = host
         self._name = name
         self._id = id

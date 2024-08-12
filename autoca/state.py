@@ -6,10 +6,20 @@ from tomllib import load as read_toml
 from tomli_w import dumps as write_toml
 from os import chmod, chown
 
-from autoca.primitives import Serializable, Deserializable, CA, CADict, Certificate, CertificateDict, Link, LinkDict
+from autoca.primitives import (
+    Serializable,
+    Deserializable,
+    CA,
+    CADict,
+    Certificate,
+    CertificateDict,
+    Link,
+    LinkDict,
+)
 from autoca.writer import SUPER_GID, SUPER_UID, Change, ChangeKind, Permission
 
 CA_DIR = "ca"
+
 
 class StateDict(TypedDict):
     time: float
@@ -17,8 +27,15 @@ class StateDict(TypedDict):
     certs: List[CertificateDict]
     links: List[LinkDict]
 
+
 class State(Serializable[StateDict], Deserializable):
-    def __init__(self, time: Optional[datetime] = None, ca: Optional[CA] = None, certs: Optional[Set[Certificate]] = None, links: Optional[Set[Link]] = None) -> None:
+    def __init__(
+        self,
+        time: Optional[datetime] = None,
+        ca: Optional[CA] = None,
+        certs: Optional[Set[Certificate]] = None,
+        links: Optional[Set[Link]] = None,
+    ) -> None:
         super().__init__()
         self._time = time
         self._ca = ca
@@ -86,7 +103,12 @@ class State(Serializable[StateDict], Deserializable):
 
     @property
     def initialized(self) -> bool:
-        return self._ca is not None and self._certs is not None and self._time is not None and self._links is not None
+        return (
+            self._ca is not None
+            and self._certs is not None
+            and self._time is not None
+            and self._links is not None
+        )
 
     def to_dict(self) -> StateDict:
         return {
@@ -99,7 +121,7 @@ class State(Serializable[StateDict], Deserializable):
     def to_file(self, path: Path):
         d = cast(Dict[str, Any], self.to_dict())
         b = bytes(write_toml(d), "utf-8")
-        
+
         crt = open(path, "wb")
         crt.write(b)
         crt.close()
