@@ -178,7 +178,7 @@ info("Saving DB")
 debug("New db: %r", new_state.to_dict())
 
 
-if new_state != old_state:
+if not old_state.initialized or new_state != old_state:
     try:
         new_state.to_file(db_path)
     except:
