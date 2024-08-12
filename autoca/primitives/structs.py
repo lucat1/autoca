@@ -1,3 +1,4 @@
+from hashlib import sha256
 from typing import Self, TypedDict, cast, Optional
 from datetime import datetime
 from cryptography.hazmat.backends import default_backend
@@ -10,7 +11,7 @@ from autoca.primitives.serde import Serializable, Deserializable
 class KeyPairDict(TypedDict):
     key: str
 
-class KeyPair(Serializable[KeyPairDict], Deserializable):
+class KeyPair(Serializable[KeyPairDict], Deserializable[KeyPairDict]):
     KEY_ENCODNIG = serialization.Encoding.PEM
     KEY_FORMAT = serialization.PrivateFormat.PKCS8
     KEY_ENCRYPTION = serialization.NoEncryption()
@@ -54,6 +55,13 @@ class KeyPair(Serializable[KeyPairDict], Deserializable):
         data = bytes(dict["key"], "utf-8")
         key = cast(rsa.RSAPrivateKey, serialization.load_pem_private_key(data, None, default_backend()))
         return self.__class__(key=key)
+
+    @property
+    def id(self) -> str:
+        return sha256(self.key_bytes).hexdigest()
+
+    def __str__(self) -> str:
+        return f"{self.id[:4]}..{self.id[-4:]}"
 
 class CADict(KeyPairDict):
     sn: str
@@ -113,6 +121,9 @@ class CA(KeyPair):
             bytes(dict["certificate"], 'utf-8'), default_backend()
         )
         return self.__class__(key=key, sn=sn, start=start, end=end, certificate=certificate)
+
+    def __str__(self) -> str:
+        return f"{self.id[:4]}..{self.id[-4:]}\t{self.sn}\t{self.start}\t{self.end}"
 
 class CertificateDict(KeyPairDict):
     domain: str
@@ -185,3 +196,51 @@ class Certificate(KeyPair):
         )
         user = dict["user"]
         return self.__class__(key=key, domain=domain, start=start, end=end, certificate=certificate, user=user)
+
+    def __str__(self) -> str:
+        return f"{self.id[:4]}..{self.id[-4:]}\t{self.domain}\t{self.start}\t\t{self.end}"
+
+class LinkDict(TypedDict):
+    host: bool
+    name: str
+    id: str
+
+class Link(Serializable[LinkDict], Deserializable[LinkDict]):
+    def __init__(self, host: Optional[bool] = None, name: Optional[str] = None, id: Optional[str] = None) -> None:
+        self._host = host
+        self._name = name
+        self._id = id
+
+    @property
+    def host(self) -> bool:
+        assert self._host is not None
+        return self._host
+
+    @property
+    def name(self) -> str:
+        assert self._name is not None
+        return self._name
+
+    @property
+    def id(self) -> str:
+        assert self._id is not None
+        return self._id
+
+    def same_src(self, other: Self) -> bool:
+        return self.host == other.host and self.name == other.name
+
+    def to_dict(self) -> LinkDict:
+        return {
+            "host": self.host,
+            "name": self.name,
+            "id": self.id,
+        }
+
+    def from_dict(self, dict: LinkDict) -> Self:
+        host = dict["host"]
+        name = dict["name"]
+        id = dict["id"]
+        return self.__class__(host=host, name=name, id=id)
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.host})\t\t->\t{self.id[:4]}..{self.id[-4:]}"

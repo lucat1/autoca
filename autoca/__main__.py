@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
-from getpass import getuser
 from dacite import from_dict
 from tomllib import load as parse_toml
 from pathlib import Path
@@ -13,7 +12,7 @@ from grp import getgrnam
 from autoca.primitives.crypto import generate_keypair, create_certificate
 from autoca.state import State
 from autoca.primitives import create_ca
-from autoca.writer import SUPER_UID, Writer
+from autoca.writer import SUPER_UID, ChangeKind, Writer
 
 CONFIG_PATH_ENV = "AUTOCA_CONFIG"
 LOG_PATH_ENV = "AUTOCA_LOG"
@@ -64,12 +63,9 @@ class Config:
     certificates: CertificatesConfig
     hosts: list[Host]
 
-def read_config(path: Path):
-    config_file = open(path, mode="rb")
-    return from_dict(data_class=Config, data=parse_toml(config_file))
-
 config_path = Path(environ[CONFIG_PATH_ENV] if CONFIG_PATH_ENV in environ else "/etc/autoca/autoca.toml")
-config = read_config(config_path)
+config_file = open(config_path, mode="rb")
+config = from_dict(data_class=Config, data=parse_toml(config_file))
 
 try:
     shared_group = getgrnam(config.shared_group)
@@ -78,15 +74,16 @@ except KeyError:
     exit(1)
 
 # Checks for config
-for h in config.hosts:
+for user in set(host.user for host in config.hosts):
     try:
-        getgrnam(h.user)
+        getgrnam(user)
     except KeyError:
-        error("Group '%s' for host '%s' not found, can't continue", h.user, h.domain)
+        error("Group '%s' for not found, can't continue", user)
         exit(1)
 
 root_path = Path(config.storage)
 db_path = root_path.joinpath("db.toml")
+
 try:
     state = State.from_file(db_path)
 except FileNotFoundError:
@@ -110,7 +107,7 @@ if not new_state.initialized:
 
 old_state = state
 
-# We should check if the CA in config is changed and then modify the state
+# TODO: We should check if the CA in config is changed and then modify the state
 
 now = datetime.now()
 duration = timedelta(minutes=config.certificates.duration)
@@ -141,11 +138,15 @@ for host in config.hosts:
         new_state.add_certificate(cert)
 
 diff = new_state.diff(old_state)
+debug("Raw diff: %r", diff)
+# Prevent deletions on a normal run
 
-print(diff)
+diff = set(filter(lambda change: change.kind != ChangeKind.delete, diff))
+for change in diff:
+    print(change)
 
 info("Saving DB")
-debug("db: %r", new_state.to_dict())
+debug("New db: %r", new_state.to_dict())
 
 
 try:

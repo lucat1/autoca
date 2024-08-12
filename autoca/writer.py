@@ -6,7 +6,7 @@ from os.path import exists
 from dataclasses import dataclass
 from typing import Set, Callable
 
-from autoca.primitives.structs import CA, Certificate
+from autoca.primitives.structs import CA, Certificate, Link
 
 SUPER_UID = 0
 SUPER_GID = 0
@@ -32,20 +32,15 @@ def write_safely(path: Path, content: bytes, permission: Permission, overwrite =
 
 class ChangeKind(Enum):
     create = 'create'
-    update = 'update'
     delete = 'delete'
 
 @dataclass(frozen=True)
 class Change:
     kind: ChangeKind
-    entity: CA | Certificate
+    entity: CA | Certificate | Link
 
     def __str__(self) -> str:
-        return f"{self.kind}\t\t{self.entity}"
-
-Checker = Callable[[Change], bool]
-def filter_changes(f: Checker, changes: Set[Change]) -> Set[Change]:
-    return set(change for change in changes if f(change))
+        return f"{self.kind.value}\t\t{self.entity}"
 
 class Writer:
     def __init__(self, shared_gid: int) -> None:
