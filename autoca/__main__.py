@@ -2,79 +2,111 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 from dacite import from_dict
 from tomllib import load as parse_toml
-from typing import TypedDict, cast
 from pathlib import Path
-from logging import basicConfig as logger_config, getLogger, StreamHandler, debug, info, error
+from logging import (
+    basicConfig as logger_config,
+    getLogger,
+    StreamHandler,
+    debug,
+    info,
+    error,
+)
 from logging import CRITICAL, FATAL, ERROR, WARNING, WARN, INFO, DEBUG
-from os import environ
+from os import environ, getuid
 from sys import stdout
 from grp import getgrnam
 
 from autoca.primitives.crypto import generate_keypair, create_certificate
-from autoca.state import State, Permissions
+from autoca.state import State
 from autoca.primitives import create_ca
-from autoca.primitives.utils import create_symlink_if_not_present
+from autoca.writer import SUPER_UID, ChangeKind, Writer
 
 CONFIG_PATH_ENV = "AUTOCA_CONFIG"
 LOG_PATH_ENV = "AUTOCA_LOG"
 LOGLEVEL_ENV = "AUTOCA_LOGLEVEL"
 
 log_levels = {
-    "CRITICAL" : CRITICAL,
-    "FATAL" : FATAL,
-    "ERROR" : ERROR,
-    "WARNING" : WARNING,
-    "WARN" : WARN,
-    "INFO" : INFO,
-    "DEBUG" : DEBUG
+    "CRITICAL": CRITICAL,
+    "FATAL": FATAL,
+    "ERROR": ERROR,
+    "WARNING": WARNING,
+    "WARN": WARN,
+    "INFO": INFO,
+    "DEBUG": DEBUG,
 }
 
-log_path = Path(environ[LOG_PATH_ENV] if LOG_PATH_ENV in environ else "/etc/autoca/latest.log")
+log_path = Path(
+    environ[LOG_PATH_ENV] if LOG_PATH_ENV in environ else "/etc/autoca/latest.log"
+)
 loglevel = environ[LOGLEVEL_ENV] if LOGLEVEL_ENV in environ else "INFO"
-logger_config(filename=log_path, level=log_levels[loglevel], filemode='a', format="%(asctime)s - %(message)s")
+logger_config(
+    filename=log_path,
+    level=log_levels[loglevel],
+    filemode="a",
+    format="%(asctime)s - %(message)s",
+)
 getLogger().addHandler(StreamHandler(stdout))
 
+if getuid() != SUPER_UID:
+    print("autoca must be run as root!")
+    exit(1)
+
 info("Started autoca")
+
 
 @dataclass
 class Host:
     domain: str
     user: str
 
+
 @dataclass
 class CAConfig:
     cn: str
-    duration: int = 365 * 60 # ~ 60ys
+    duration: int = 365 * 60  # ~ 60ys
+
 
 @dataclass
 class CertificatesConfig:
-    duration: int = 60 # ~ 2 starts
+    duration: int = 60  # ~ 2 starts
     domains: list[str] = field(default_factory=list)
+
 
 @dataclass
 class Config:
     storage: str
+    shared_group: str
+
     ca: CAConfig
     certificates: CertificatesConfig
     hosts: list[Host]
 
-def read_config(path: Path):
-    config_file = open(path, mode="rb")
-    return from_dict(data_class=Config, data=parse_toml(config_file))
 
-config_path = Path(environ[CONFIG_PATH_ENV] if CONFIG_PATH_ENV in environ else "/etc/autoca/autoca.toml")
-config = read_config(config_path)
+config_path = Path(
+    environ[CONFIG_PATH_ENV]
+    if CONFIG_PATH_ENV in environ
+    else "/etc/autoca/autoca.toml"
+)
+config_file = open(config_path, mode="rb")
+config = from_dict(data_class=Config, data=parse_toml(config_file))
+
+try:
+    shared_group = getgrnam(config.shared_group)
+except KeyError:
+    error("Shared group '%s' not found, can't continue", config.shared_group)
+    exit(1)
 
 # Checks for config
-for h in config.hosts:
+for user in set(host.user for host in config.hosts):
     try:
-        getgrnam(h.user)
+        getgrnam(user)
     except KeyError:
-        error("Group '%s' not found, can't continue", h.user)
+        error("Group '%s' for not found, can't continue", user)
         exit(1)
 
 root_path = Path(config.storage)
 db_path = root_path.joinpath("db.toml")
+
 try:
     state = State.from_file(db_path)
 except FileNotFoundError:
@@ -82,55 +114,76 @@ except FileNotFoundError:
     state = State()
 except:
     import traceback
+
     error("Could not parse database file: %r", traceback.format_exc())
     state = State()
 
-if not state.initialized:
-    time = datetime.now()
-    kp = generate_keypair()
-    ca = create_ca(kp, config.ca.cn, time, time + timedelta(days=config.ca.duration))
-    state.set_ca(ca)
-    # I have to force the sync to fs in order to set new CA
-    state.update_fs(None, root_path)
-    assert state.initialized
-
-# Deep copy can't be done as RSAPrivateKey cannot be pickled
-new_state = State().from_dict(state.to_dict())
-
-# We should check if the CA in config is changed and then modify the state
-
 now = datetime.now()
+
+new_state = state.clone()
+writer = Writer(root_path, shared_group.gr_gid)
+
+if not new_state.initialized:
+    kp = generate_keypair()
+    ca = create_ca(kp, config.ca.cn, now, now + timedelta(days=config.ca.duration))
+    new_state.set_ca(ca)
+    assert new_state.initialized
+
+old_state = state
+
+# TODO: We should check if the CA in config is changed and then modify the state
+
 duration = timedelta(days=config.certificates.duration)
-duration_halfed = duration // 2
-start = datetime.fromtimestamp((now.timestamp() // duration_halfed.total_seconds()) * duration_halfed.total_seconds())
-info("start: " + str(start))
-info("renew: " + str(start + duration_halfed))
-info("expired: " + str(start + duration))
+duration_halved = duration // 2
+start = datetime.fromtimestamp(
+    (now.timestamp() // duration_halved.total_seconds())
+    * duration_halved.total_seconds()
+)
+mid = start + duration_halved
+end = start + duration
+info(f"Current period start\t{start}")
+info(f"Current period renew\t{mid}")
+info(f"Current period end\t{end}")
 
 # Add new hosts
-cert_domains = [c[0].domain for c in state.certs]
 for host in config.hosts:
-    if host.domain not in cert_domains:
-        info("Adding cert for domain %s", host.domain)
+    # Add certificates for mising or expired hosts
+    certs = old_state.certs_by_domain(host.domain)
+    add = False
+    if len(certs) == 0:
+        add = True
+        cause = "intial"
+
+    if not add:
+        newest_cert = old_state.most_recent(host.domain)
+        add = newest_cert.end <= datetime.now() + duration_halved
+        cause = "close to expiry"
+
+    if add:
+        info("Adding cert for domain %s (cause: %s)", host.domain, cause)  # type: ignore
         kp = generate_keypair()
-        cert = create_certificate(kp, new_state.ca, host.domain, start, start + duration)
-        new_state.add_certificate(cert, Permissions(permissions=0o640, user="root", group=host.user))
+        cert = create_certificate(
+            kp, new_state.ca, host.domain, start, start + duration, host.user
+        )
+        new_state.add_certificate(cert)
 
-# Update expired certs
-for c in state.certs:
-    if now >= c[0].start + duration_halfed:
-        info("Updating certificate for %s", c[0].domain)
-        kp = generate_keypair()
-        cert = create_certificate(kp, new_state.ca, c[0].domain, start, start + duration)
-        new_state.delete_certificate(cert)
-        new_state.add_certificate(cert, Permissions(permissions=0o640, user="root", group=host.user))
+diff = new_state.diff(old_state)
+debug("Raw diff: %r", diff)
 
-
-new_state.update_fs(state, root_path)
+# Prevent deletions on a normal run
+diff = set(filter(lambda change: change.kind != ChangeKind.delete, diff))
+writer.apply_many(diff)
 
 info("Saving DB")
-debug("db: %r", new_state.to_dict())
+debug("New db: %r", new_state.to_dict())
 
-new_state.to_file(db_path)
+
+if not old_state.initialized or new_state != old_state:
+    try:
+        new_state.to_file(db_path)
+    except:
+        import traceback
+
+        error("Could not write db: %r", traceback.format_exc())
 
 info("Ended autoca")

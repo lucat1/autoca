@@ -1,6 +1,14 @@
 from datetime import datetime, timedelta
 from unittest import main, TestCase
-from autoca.primitives import KeyPair, CA, Certificate, generate_keypair, create_ca, create_certificate
+from autoca.primitives import (
+    KeyPair,
+    CA,
+    Certificate,
+    generate_keypair,
+    create_ca,
+    create_certificate,
+)
+
 
 class TestKeyPair(TestCase):
     def test(self):
@@ -9,6 +17,7 @@ class TestKeyPair(TestCase):
         self.assertEqual(kp1.key_bytes, kp2.key_bytes)
         self.assertEqual(kp1.public_key_bytes, kp2.public_key_bytes)
         self.assertTrue(kp1 == kp2)
+
 
 class TestCA(TestCase):
     def test(self):
@@ -24,12 +33,15 @@ class TestCA(TestCase):
         self.assertEqual(ca1.certificate_bytes, ca2.certificate_bytes)
         self.assertTrue(ca1 == ca2)
 
+
 class TestCertificate(TestCase):
     def test(self):
         kp = generate_keypair()
         time = datetime.now()
         ca = create_ca(kp, "test CA", time, time + timedelta(days=365))
-        cert1 = create_certificate(kp, ca, "test.com", time, time + timedelta(days=1))
+        cert1 = create_certificate(
+            kp, ca, "test.com", time, time + timedelta(days=1), "user"
+        )
         cert2 = Certificate().from_dict(cert1.to_dict())
         self.assertEqual(cert1.key_bytes, cert2.key_bytes)
         self.assertEqual(cert1.public_key_bytes, cert2.public_key_bytes)
@@ -37,7 +49,9 @@ class TestCertificate(TestCase):
         self.assertEqual(cert1.start, cert2.start)
         self.assertEqual(cert1.end, cert2.end)
         self.assertEqual(cert1.certificate_bytes, cert2.certificate_bytes)
+        self.assertEqual(cert1.user, cert2.user)
         self.assertTrue(cert1 == cert2)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

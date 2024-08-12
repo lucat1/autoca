@@ -1,4 +1,5 @@
 storage = "/tmp/test"
+shared_group = "users"
 
 [ca]
 cn = "Teapot Root CA"
