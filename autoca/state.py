@@ -35,7 +35,7 @@ class State(Serializable[StateDict], Deserializable):
         if self._links is None:
             self._links = set()
 
-        self._links = set(l for l in self.links if link.same_src(l))
+        self._links = set(l for l in self.links if not link.same_src(l))
         self._links.add(link)
 
     @property

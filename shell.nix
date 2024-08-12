@@ -2,7 +2,7 @@ let
   pkgs = import <nixpkgs> {};
 in pkgs.mkShell {
   packages = [
-    (pkgs.python3.withPackages (python-pkgs: [
+    (pkgs.python312.withPackages (python-pkgs: [
       python-pkgs.cryptography
       python-pkgs.tomli-w
       python-pkgs.dacite

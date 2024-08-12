@@ -11,3 +11,7 @@ duration = 5 # 60 days = ~ two monts
 [[hosts]]
 domain = "test.com"
 user = "luca"
+
+[[hosts]]
+domain = "test.io"
+user = "root"

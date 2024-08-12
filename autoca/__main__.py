@@ -94,14 +94,15 @@ except:
     error("Could not parse database file: %r", traceback.format_exc())
     state = State()
 
+now = datetime.now()
+
 # Deep copy can't be done as RSAPrivateKey cannot be pickled
 new_state = state.clone()
 writer = Writer(root_path, shared_group.gr_gid)
 
 if not new_state.initialized:
-    time = datetime.now()
     kp = generate_keypair()
-    ca = create_ca(kp, config.ca.cn, time, time + timedelta(days=config.ca.duration))
+    ca = create_ca(kp, config.ca.cn, now, now + timedelta(days=config.ca.duration))
     new_state.set_ca(ca)
     assert new_state.initialized
 
@@ -109,7 +110,6 @@ old_state = state
 
 # TODO: We should check if the CA in config is changed and then modify the state
 
-now = datetime.now()
 duration = timedelta(minutes=config.certificates.duration)
 duration_halved = duration // 2
 start = datetime.fromtimestamp((now.timestamp() // duration_halved.total_seconds()) * duration_halved.total_seconds())
@@ -131,7 +131,7 @@ for host in config.hosts:
     if not add:
         newest_cert = old_state.most_recent(host.domain)
         add = newest_cert.end <= datetime.now() + duration_halved
-        cause = "soon to expire"
+        cause = "close to expiry"
 
     if add:
         info("Adding cert for domain %s (cause: %s)", host.domain, cause) # type: ignore
