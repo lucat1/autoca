@@ -39,7 +39,9 @@ class TestCertificate(TestCase):
         kp = generate_keypair()
         time = datetime.now()
         ca = create_ca(kp, "test CA", time, time + timedelta(days=365))
-        cert1 = create_certificate(kp, ca, "test.com", time, time + timedelta(days=1))
+        cert1 = create_certificate(
+            kp, ca, "test.com", time, time + timedelta(days=1), "user"
+        )
         cert2 = Certificate().from_dict(cert1.to_dict())
         self.assertEqual(cert1.key_bytes, cert2.key_bytes)
         self.assertEqual(cert1.public_key_bytes, cert2.public_key_bytes)
@@ -47,6 +49,7 @@ class TestCertificate(TestCase):
         self.assertEqual(cert1.start, cert2.start)
         self.assertEqual(cert1.end, cert2.end)
         self.assertEqual(cert1.certificate_bytes, cert2.certificate_bytes)
+        self.assertEqual(cert1.user, cert2.user)
         self.assertTrue(cert1 == cert2)
 
 

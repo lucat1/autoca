@@ -16,7 +16,7 @@ from autoca.primitives import (
     Link,
     LinkDict,
 )
-from autoca.writer import SUPER_GID, SUPER_UID, Change, ChangeKind, Permission
+from autoca.writer import SUPER_GID, SUPER_UID, Change, ChangeKind
 
 CA_DIR = "ca"
 
