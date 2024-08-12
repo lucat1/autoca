@@ -96,7 +96,6 @@ except:
 
 now = datetime.now()
 
-# Deep copy can't be done as RSAPrivateKey cannot be pickled
 new_state = state.clone()
 writer = Writer(root_path, shared_group.gr_gid)
 
@@ -110,7 +109,7 @@ old_state = state
 
 # TODO: We should check if the CA in config is changed and then modify the state
 
-duration = timedelta(minutes=config.certificates.duration)
+duration = timedelta(days=config.certificates.duration)
 duration_halved = duration // 2
 start = datetime.fromtimestamp((now.timestamp() // duration_halved.total_seconds()) * duration_halved.total_seconds())
 mid = start + duration_halved
@@ -141,21 +140,20 @@ for host in config.hosts:
 
 diff = new_state.diff(old_state)
 debug("Raw diff: %r", diff)
-# Prevent deletions on a normal run
 
+# Prevent deletions on a normal run
 diff = set(filter(lambda change: change.kind != ChangeKind.delete, diff))
-for change in diff:
-    print(change)
 writer.apply_many(diff)
 
 info("Saving DB")
 debug("New db: %r", new_state.to_dict())
 
 
-try:
-    new_state.to_file(db_path)
-except:
-    import traceback
-    error("Could not write db: %r", traceback.format_exc())
+if new_state != old_state:
+    try:
+        new_state.to_file(db_path)
+    except:
+        import traceback
+        error("Could not write db: %r", traceback.format_exc())
 
 info("Ended autoca")

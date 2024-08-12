@@ -113,6 +113,7 @@ class State(Serializable[StateDict], Deserializable):
         return State().from_dict(cast(StateDict, read_toml(f)))
 
     def clone(self) -> "State":
+        # Deep copy can't be done as RSAPrivateKey cannot be pickled
         return State().from_dict(self.to_dict()) if self.initialized else State()
 
     def diff(self, other: Self) -> Set[Change]:

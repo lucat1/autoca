@@ -6,12 +6,20 @@ cn = "Teapot Root CA"
 duration = 21900 # 21900 days = ~ 60 years
 
 [certificates]
-duration = 5 # 60 days = ~ two monts
+duration = 60 # 60 days = ~ two monts
 
-[[hosts]]
+[[ hosts ]]
 domain = "test.com"
-user = "luca"
+user = "user1"
 
-[[hosts]]
-domain = "test.io"
-user = "root"
+[[ hosts ]]
+domain = "castoro.it"
+user = "user2"
+
+[[ hosts ]]
+domain = "pippo.io"
+user = "user3"
+
+[[ hosts ]]
+domain = "pluto.dev"
+user = "user4"
