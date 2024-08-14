@@ -1,3 +1,7 @@
-Tests can be run with:
+Automatic PKI (Public Key Infrastructure) generation and renewal via an idempotent python script.
+This tool is meant to be run as a cronjob on a central machine, so that certificates for various hosts can be distributed.
+Can be used as a suckless replacement for HashiCorp's Vault when in need for a self-signed PKI.
+
+Serialization tests can be run with:
 
 $ python -m unittest autoca/**/*test.py
