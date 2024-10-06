@@ -1,0 +1,11 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Source: https://www.gnu.org/licenses/agpl-3.0.en.html
+Upstream-Name: autoca
+Upstream-Contact: Luca Tagliavini <luca@teapot.ovh>
+
+Files:
+ *
+Copyright:
+ 2024 Luca Tagliavini <luca@teapot.ovh>
+ 2024 Samuele Musiani <samu@teapot.ovh>
+License: AGPL-3+

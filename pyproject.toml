@@ -1,0 +1,28 @@
+[project]
+name = "autoca"
+dynamic = ["version"]
+description = "Scripts to automate PKI management for teapot.ovh"
+authors = [
+  {name = "Samuele Musiani", email = "samu@teapot.ovh"},
+  {name = "Luca Tagliavini", email = "luca@teapot.ovh"},
+]
+maintainers = [
+  {name = "Samuele Musiani", email = "samu@teapot.ovh"},
+  {name = "Luca Tagliavini", email = "luca@teapot.ovh"},
+]
+license = { file = "LICENSE" }
+dependencies = [
+  "cryptography",
+  "tomli-w",
+  "dacite"
+]
+
+[project.scripts]
+autoca = "autoca:main"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"

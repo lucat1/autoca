@@ -1,0 +1,31 @@
+Source: autoca
+Section: python
+Priority: optional
+Maintainer: Luca Tagliavini <luca@teapot.ovh>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+ python3,
+ dh-python,
+ pybuild-plugin-pyproject,
+ python3-hatchling,
+ python3-hatch-vcs
+Standards-Version: 4.6.2
+Homepage: https://github.com/lucat1/autoca
+Vcs-Git: https://github.com/lucat1/autoca
+
+Package: autoca
+Architecture: all
+Depends:
+ ${misc:Depends},
+ python3,
+ python3-tomli-w,
+ python3-cryptography,
+ python3-dacite
+Description: Scripts to automate PKI management for teapot.ovh
+ Automatic PKI (Public Key Infrastructure) generation and renewal
+ via an idempotent python script. This tool is meant to be run as
+ a cronjob on a central machine, so that certificates for various
+ hosts can be distributed.
+ Can be used as a suckless replacement for HashiCorp's Vault when
+ in need for a self-signed PKI.

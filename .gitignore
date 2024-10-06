@@ -2,3 +2,11 @@
 .envrc
 __pycache__
 latest.log
+
+# package building artifacts
+/debian/*.log
+/debian/*.substvars
+/debian/*.debhelper
+/debian/debhelper-build-stamp
+/debian/files
+/debian/tmp/
