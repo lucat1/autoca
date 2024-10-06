@@ -18,10 +18,7 @@ Package: autoca
 Architecture: all
 Depends:
  ${misc:Depends},
- python3,
- python3-tomli-w,
- python3-cryptography,
- python3-dacite
+ ${python3:Depends}
 Description: Scripts to automate PKI management for teapot.ovh
  Automatic PKI (Public Key Infrastructure) generation and renewal
  via an idempotent python script. This tool is meant to be run as
