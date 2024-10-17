@@ -9,7 +9,8 @@ Build-Depends:
  dh-python,
  pybuild-plugin-pyproject,
  python3-hatchling,
- python3-hatch-vcs
+ python3-hatch-vcs,
+ ${python3:Depends}
 Standards-Version: 4.6.2
 Homepage: https://github.com/lucat1/autoca
 Vcs-Git: https://github.com/lucat1/autoca
