@@ -1,3 +1,9 @@
+autoca (0.1.0-3) UNRELEASED; urgency=medium
+
+  * Fix config folder creation
+
+ -- Luca Tagliavini <luca@teapot.ovh>  Sun, 28 Dec 2024 12:16:00 +0000
+
 autoca (0.1.0-2) UNRELEASED; urgency=medium
 
   * Added default configuration file.
