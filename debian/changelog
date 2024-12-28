@@ -1,6 +1,12 @@
+autoca (0.1.0-4) UNRELEASED; urgency=medium
+
+  * Rename the config file to match the default expected path.
+
+ -- Luca Tagliavini <luca@teapot.ovh>  Sun, 28 Dec 2024 12:21:00 +0000
+
 autoca (0.1.0-3) UNRELEASED; urgency=medium
 
-  * Fix config folder creation
+  * Fix config folder creation.
 
  -- Luca Tagliavini <luca@teapot.ovh>  Sun, 28 Dec 2024 12:16:00 +0000
 
