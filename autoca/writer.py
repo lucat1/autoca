@@ -45,6 +45,35 @@ class Change:
     def __str__(self) -> str:
         return f"{self.kind.value}\t\t{self.entity}"
 
+# Reimplements Path.relative_to(walk_up=True) that's only available from
+# Python3.12 onwards. This code has been written by ChatGPT so it is what it is.
+def relative_to_walk_up(cert_path: Path, parent_path: Path) -> Path:
+    cert_path = cert_path.resolve()
+    parent_path = parent_path.resolve()
+
+    # Case 1: If cert_path is already relative to parent_path, no need to walk up
+    if cert_path.is_relative_to(parent_path):
+        return cert_path.relative_to(parent_path)
+
+    # Case 2: Find the common ancestor and compute the walk-up path
+    common_ancestor = None
+    for ancestor in parent_path.parents:
+        if cert_path.is_relative_to(ancestor):
+            common_ancestor = ancestor
+            break
+
+    if common_ancestor is None:
+        raise ValueError(f"No common ancestor found between {cert_path} and {parent_path}")
+
+    # Compute the upward traversal part
+    up_levels = len(parent_path.relative_to(common_ancestor).parts)
+    upward = Path(*([".."] * up_levels))
+
+    # Compute the downward traversal part
+    downward = cert_path.relative_to(common_ancestor)
+
+    # Combine them
+    return upward / downward
 
 class Writer:
     def __init__(self, root: Path, shared_gid: int) -> None:
@@ -88,9 +117,8 @@ class Writer:
             parent_path = self._root
 
         link_path = parent_path.joinpath(link.name)
-        link_to = self._root.joinpath(CERTS_DIR, link.id).relative_to(
-            parent_path, walk_up=True
-        )
+        cert_path = self._root.joinpath(CERTS_DIR, link.id)
+        link_to = relative_to_walk_up(cert_path, parent_path)
         if link_path.exists():
             link_path.unlink()
         link_path.symlink_to(link_to, target_is_directory=True)
