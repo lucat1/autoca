@@ -1,3 +1,10 @@
+autoca (0.1.1-1) UNRELEASED; urgency=medium
+
+  * Remove any usage of relative_to(walk_up=True) to make autoca compatible
+    with python==3.11.
+
+ -- Luca Tagliavini <luca@teapot.ovh>  Sun, 28 Dec 2024 13:14:00 +0000
+
 autoca (0.1.0-4) UNRELEASED; urgency=medium
 
   * Rename the config file to match the default expected path.
